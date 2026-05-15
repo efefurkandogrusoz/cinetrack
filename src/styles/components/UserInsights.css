@@ -1,0 +1,145 @@
+.insights-section {
+  margin: 0 0 28px;
+  padding: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.08), rgba(229, 9, 20, 0.08));
+}
+
+.insights-summary {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.insights-summary h3 {
+  color: #fff;
+  font-size: 24px;
+  margin-bottom: 6px;
+}
+
+.insights-summary p {
+  max-width: 680px;
+  color: #b6b6b6;
+}
+
+.insight-metrics {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.insight-metrics span {
+  padding: 10px 12px;
+  background: rgba(0, 0, 0, 0.28);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  color: #d8d8d8;
+  font-size: 13px;
+}
+
+.insight-metrics strong {
+  color: #fff;
+  font-size: 18px;
+}
+
+.genre-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 16px;
+}
+
+.genre-chip {
+  padding: 8px 12px;
+  background: #fff;
+  color: #111;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.insight-empty {
+  margin-top: 16px;
+  color: #d0d0d0;
+}
+
+.recommendation-block {
+  margin-top: 20px;
+}
+
+.recommendation-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.recommendation-head h4 {
+  color: #fff;
+  font-size: 18px;
+}
+
+.recommendation-head span {
+  color: #b6b6b6;
+  font-size: 12px;
+}
+
+.recommendation-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.recommendation-card {
+  display: grid;
+  grid-template-columns: 54px 1fr;
+  gap: 12px;
+  min-height: 92px;
+  padding: 10px;
+  background: rgba(0, 0, 0, 0.32);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+}
+
+.recommendation-card img {
+  width: 54px;
+  height: 78px;
+  object-fit: cover;
+  border-radius: 5px;
+}
+
+.recommendation-card h5 {
+  color: #fff;
+  font-size: 14px;
+  margin-bottom: 4px;
+}
+
+.recommendation-card p {
+  color: #9f9f9f;
+  font-size: 12px;
+  margin-bottom: 8px;
+}
+
+.recommendation-card button {
+  border: 0;
+  border-radius: 5px;
+  background: #e50914;
+  color: #fff;
+  padding: 6px 9px;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+@media (max-width: 768px) {
+  .insights-summary {
+    flex-direction: column;
+  }
+
+  .insight-metrics {
+    justify-content: flex-start;
+  }
+}

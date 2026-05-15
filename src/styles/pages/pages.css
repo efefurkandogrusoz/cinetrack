@@ -1,0 +1,92 @@
+.page-container {
+  width: 100%;
+  min-height: 100vh;
+}
+
+.page-content {
+  padding-bottom: 48px;
+}
+
+.page-header {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 28px;
+  padding: 42px 0 12px;
+}
+
+.page-header.hero-header {
+  position: relative;
+  min-height: 280px;
+  overflow: hidden;
+  align-content: end;
+  padding-top: 76px;
+  background:
+    linear-gradient(90deg, rgba(24, 24, 24, 0.98), rgba(24, 24, 24, 0.56)),
+    linear-gradient(135deg, rgba(229, 9, 20, 0.42), rgba(255, 255, 255, 0.05));
+  border-radius: 8px;
+  margin-bottom: 24px;
+  padding: 38px;
+  border: 1px solid rgba(229, 9, 20, 0.22);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.32);
+}
+
+.page-header.hero-header::after {
+  position: absolute;
+  right: 28px;
+  bottom: -38px;
+  width: min(38vw, 420px);
+  height: 220px;
+  content: "";
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.06), transparent),
+    repeating-linear-gradient(90deg, rgba(229, 9, 20, 0.34) 0 24px, rgba(255, 255, 255, 0.09) 24px 46px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  opacity: 0.5;
+  transform: rotate(-7deg);
+}
+
+.eyebrow {
+  color: #e50914;
+  font-size: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.page-header h2 {
+  position: relative;
+  z-index: 1;
+  max-width: 800px;
+  color: #fff;
+  font-size: 44px;
+  font-weight: 950;
+}
+
+.page-header p {
+  position: relative;
+  z-index: 1;
+  max-width: 620px;
+  color: #c5c5c5;
+  font-size: 16px;
+}
+
+@media (max-width: 768px) {
+  .page-header.hero-header {
+    min-height: 200px;
+    padding: 28px;
+  }
+
+  .page-header h2 {
+    font-size: 32px;
+  }
+}
+
+@media (max-width: 520px) {
+  .page-header.hero-header {
+    padding: 22px;
+  }
+
+  .page-header h2 {
+    font-size: 28px;
+  }
+}

@@ -89,7 +89,7 @@ const MovieCard = ({ movie }) => {
               }}
               type="button"
             >
-              {movie.watched ? 'Izlendi' : 'Izlenecek'}
+              {movie.watched ? 'İzlendi' : 'İzlenecek'}
             </button>
             <button className="action-btn delete-btn" onClick={event => {
               stopAction(event);
@@ -118,7 +118,7 @@ const MovieCard = ({ movie }) => {
               }}
               type="button"
             >
-              Begendim
+              Beğendim
             </button>
             <button
               className={movie.reaction === 'disliked' ? 'reaction active disliked' : 'reaction'}
@@ -128,7 +128,7 @@ const MovieCard = ({ movie }) => {
               }}
               type="button"
             >
-              Begenmedim
+              Beğenmedim
             </button>
           </div>
         )}

@@ -14,7 +14,7 @@ const Watchlist = () => {
       <div className="page-content">
         <div className="container-fluid">
           <div className="page-header">
-            <h2>Izlenecek Filmler</h2>
+            <h2>İzlenecek Filmler</h2>
             <p>{watchlistMovies.length} film izlemeyi bekliyor</p>
           </div>
           <MovieList movies={watchlistMovies} />

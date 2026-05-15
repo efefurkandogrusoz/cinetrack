@@ -78,16 +78,16 @@ const UserInsights = () => {
       <div className="insights-summary">
         <div>
           <p className="eyebrow">Zevk Analizi</p>
-          <h3>Sana gore film profili</h3>
+          <h3>Sana göre film profili</h3>
           <p>
-            Izledigin filmlerde Begendim/Begenmedim secildikce favori turlerin ve oneriler
-            otomatik guncellenir.
+            İzlediğin filmlerde Beğendim/Beğenmedim seçildikçe favori türlerin ve öneriler
+            otomatik güncellenir.
           </p>
         </div>
 
         <div className="insight-metrics">
-          <span><strong>{analysis.likedCount}</strong> begeni</span>
-          <span><strong>{analysis.dislikedCount}</strong> begenmeme</span>
+          <span><strong>{analysis.likedCount}</strong> beğeni</span>
+          <span><strong>{analysis.dislikedCount}</strong> beğenmeme</span>
         </div>
       </div>
 
@@ -100,14 +100,14 @@ const UserInsights = () => {
           ))}
         </div>
       ) : (
-        <p className="insight-empty">Analiz icin izledigin filmlerden birkac tanesine Begendim sec.</p>
+        <p className="insight-empty">Analiz için izlediğin filmlerden birkaç tanesine Beğendim seç.</p>
       )}
 
       {(loading || recommendations.length > 0) && (
         <div className="recommendation-block">
           <div className="recommendation-head">
-            <h4>Onerilen Filmler</h4>
-            {loading && <span>Yukleniyor</span>}
+            <h4>Önerilen Filmler</h4>
+            {loading && <span>Yükleniyor</span>}
           </div>
           <div className="recommendation-row">
             {recommendations.map(movie => (

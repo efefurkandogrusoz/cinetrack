@@ -3,10 +3,10 @@
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.09);
   border-radius: 8px;
-  background: #1b1b1b;
-  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.28);
+  background: #131313;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.3);
   transform-origin: center;
-  transition: transform 0.24s ease, border-color 0.24s ease, box-shadow 0.24s ease;
+  transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.28s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.28s cubic-bezier(0.4, 0, 0.2, 1);
   cursor: pointer;
 }
 
@@ -33,7 +33,7 @@
 
 .card-poster {
   object-fit: cover;
-  transition: transform 0.28s ease;
+  transition: transform 0.32s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .movie-card:hover .card-poster {
@@ -93,8 +93,8 @@
   gap: 10px;
   padding: 14px;
   opacity: 0;
-  transform: translateY(10px);
-  transition: opacity 0.22s ease, transform 0.22s ease;
+  transform: translateY(12px);
+  transition: opacity 0.26s cubic-bezier(0.4, 0, 0.2, 1), transform 0.26s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .movie-card:hover .card-overlay {
@@ -114,7 +114,7 @@
 
 .card-details p,
 .card-details small {
-  color: #d0d0d0;
+  color: #d8d8d8;
   font-size: 12px;
 }
 

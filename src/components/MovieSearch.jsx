@@ -4,7 +4,7 @@ import { useMovies } from '../context/MovieContext';
 import MovieDetailsModal from './MovieDetailsModal';
 import '../styles/components/MovieSearch.css';
 
-const MovieSearch = ({ autoFocus = false, onAdd = null }) => {
+const MovieSearch = ({ autoFocus = false, onAdd = null, compact = false }) => {
   const [query, setQuery] = useState('');
   const [searching, setSearching] = useState(false);
   const [selectedMovie, setSelectedMovie] = useState(null);
@@ -57,21 +57,21 @@ const MovieSearch = ({ autoFocus = false, onAdd = null }) => {
   };
 
   return (
-    <div className="movie-search-container">
+    <div className={compact ? 'movie-search-container compact' : 'movie-search-container'}>
       <div className="search-box">
         <div className="search-input-wrap">
-          <span className="search-prefix">Ara</span>
+          {!compact && <span className="search-prefix">Ara</span>}
           <input
             ref={inputRef}
             type="search"
             className="form-control search-input"
-            placeholder="Film adi yaz..."
+            placeholder={compact ? 'Film ara...' : 'Film adı yaz...'}
             value={query}
             onChange={event => setQuery(event.target.value)}
           />
-          {searching && <span className="search-status">Araniyor</span>}
+          {searching && <span className="search-status">Aranıyor</span>}
           {query && (
-            <button className="clear-search" type="button" onClick={handleClear} aria-label="Aramayi temizle">
+            <button className="clear-search" type="button" onClick={handleClear} aria-label="Aramayı temizle">
               X
             </button>
           )}
@@ -79,7 +79,7 @@ const MovieSearch = ({ autoFocus = false, onAdd = null }) => {
 
         {searchResults.length > 0 && (
           <div className="search-results">
-            <h6 className="results-title">{searchResults.length} sonuc bulundu</h6>
+            <h6 className="results-title">{searchResults.length} sonuç bulundu</h6>
             <div className="results-grid">
               {searchResults.map((movie) => (
                 <div
@@ -124,7 +124,7 @@ const MovieSearch = ({ autoFocus = false, onAdd = null }) => {
 
         {query.trim() && !searching && searchResults.length === 0 && (
           <div className="search-empty" role="status">
-            Sonuc bulunamadi. Baska bir film adi deneyin.
+            Sonuç bulunamadı. Başka bir film adı deneyin.
           </div>
         )}
       </div>

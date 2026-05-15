@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+
 * {
   box-sizing: border-box;
   margin: 0;
@@ -7,14 +9,14 @@
 :root {
   --primary-color: #e50914;
   --primary-dark: #a4060e;
-  --bg-primary: #181818;
-  --bg-secondary: #202020;
-  --bg-tertiary: #2a2a2a;
-  --panel: rgba(32, 32, 32, 0.88);
-  --text-primary: #fff;
-  --text-secondary: #b8b8b8;
-  --text-muted: #818181;
-  --border-color: rgba(255, 255, 255, 0.1);
+  --bg-primary: #0f0f0f;
+  --bg-secondary: #1a1a1a;
+  --bg-tertiary: #242424;
+  --panel: rgba(32, 32, 32, 0.92);
+  --text-primary: #ffffff;
+  --text-secondary: #d0d0d0;
+  --text-muted: #9a9a9a;
+  --border-color: rgba(255, 255, 255, 0.12);
 }
 
 html,
@@ -26,11 +28,11 @@ body,
 
 body {
   background:
-    linear-gradient(180deg, rgba(229, 9, 20, 0.15) 0%, rgba(24, 24, 24, 0) 280px),
-    linear-gradient(135deg, #181818 0%, #222 42%, #151515 100%),
+    linear-gradient(180deg, rgba(229, 9, 20, 0.1) 0%, rgba(15, 15, 15, 0) 300px),
+    linear-gradient(135deg, #0f0f0f 0%, #1a1a1a 42%, #0a0a0a 100%),
     var(--bg-primary);
   color: var(--text-primary);
-  font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
   font-size: 16px;
   line-height: 1.5;
   overflow-x: hidden;
@@ -42,7 +44,7 @@ input {
 }
 
 button {
-  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
+  transition: background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1), color 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.24s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 button:hover {
@@ -61,9 +63,10 @@ h4,
 h5,
 h6 {
   color: var(--text-primary);
-  font-weight: 800;
+  font-weight: 900;
   line-height: 1.15;
   margin: 0;
+  letter-spacing: 0;
 }
 
 .brand-mark {
@@ -105,11 +108,12 @@ input[type='email'],
 input[type='password'],
 input[type='search'],
 input[type='text'] {
-  background: rgba(255, 255, 255, 0.08) !important;
-  border: 1px solid rgba(255, 255, 255, 0.14) !important;
+  background: rgba(255, 255, 255, 0.05) !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
   border-radius: 7px;
   color: #fff !important;
   outline: none;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .form-control:focus,
@@ -119,7 +123,7 @@ input:focus {
 }
 
 ::placeholder {
-  color: #9c9c9c;
+  color: #a8a8a8;
 }
 
 .text-muted {
@@ -161,16 +165,17 @@ input:focus {
 }
 
 ::-webkit-scrollbar-track {
-  background: #101010;
+  background: #0a0a0a;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #4a4a4a;
+  background: #3a3a3a;
   border-radius: 999px;
+  transition: background 0.3s ease;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #727272;
+  background: #5a5a5a;
 }
 
 @media (max-width: 768px) {

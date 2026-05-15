@@ -19,9 +19,12 @@ import {
   signOut,
   createUserWithEmailAndPassword,
   onAuthStateChanged,
+  updateEmail,
+  updatePassword,
   updateProfile,
   setPersistence,
-  inMemoryPersistence,
+  browserLocalPersistence,
+  browserSessionPersistence,
 } from "firebase/auth";
 
 const firebaseConfig = {
@@ -36,16 +39,24 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app);
 export const auth = getAuth(app);
-const authPersistenceReady = setPersistence(auth, inMemoryPersistence).catch((error) => {
+const authPersistenceReady = setPersistence(auth, browserLocalPersistence).catch((error) => {
   console.error('Auth persistence error:', error);
 });
+
+const setAuthPersistence = async (rememberSession = true) => {
+  await authPersistenceReady;
+  await setPersistence(
+    auth,
+    rememberSession ? browserLocalPersistence : browserSessionPersistence
+  );
+};
 
 // Firestore Movies Collection
 const MOVIES_COLLECTION = 'movies';
 const USERS_COLLECTION = 'users';
 
 const saveUserProfile = async (user, extra = {}) => {
-  const displayName = extra.displayName || user.displayName || user.email?.split('@')[0] || 'Kullanici';
+  const displayName = extra.displayName || user.displayName || user.email?.split('@')[0] || 'Kullanıcı';
 
   await setDoc(doc(db, USERS_COLLECTION, user.uid), {
     uid: user.uid,
@@ -143,9 +154,9 @@ export const updateMovieStatus = async (docId, updates) => {
 };
 
 // Auth functions
-export const registerUser = async (email, password, displayName = '') => {
+export const registerUser = async (email, password, displayName = '', rememberSession = true) => {
   try {
-    await authPersistenceReady;
+    await setAuthPersistence(rememberSession);
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     const cleanDisplayName = displayName.trim() || email.split('@')[0];
     updateProfile(userCredential.user, { displayName: cleanDisplayName }).catch((error) => {
@@ -163,9 +174,9 @@ export const registerUser = async (email, password, displayName = '') => {
   }
 };
 
-export const loginUser = async (email, password) => {
+export const loginUser = async (email, password, rememberSession = true) => {
   try {
-    await authPersistenceReady;
+    await setAuthPersistence(rememberSession);
     const userCredential = await signInWithEmailAndPassword(auth, email, password);
     saveUserProfileSafely(userCredential.user, {
       lastLoginAt: serverTimestamp(),
@@ -204,6 +215,45 @@ export const getUserProfile = async (uid) => {
   }
 };
 
+export const updateAccountSettings = async ({ displayName, email, password, profileNote }) => {
+  const user = auth.currentUser;
+  if (!user) throw new Error('User must be signed in to update account settings');
+
+  const cleanDisplayName = displayName?.trim() || user.displayName || user.email?.split('@')[0] || 'Kullanıcı';
+  const cleanEmail = email?.trim().toLowerCase() || user.email;
+  const cleanProfileNote = profileNote?.trim() || '';
+  const updates = [];
+
+  if (cleanDisplayName && cleanDisplayName !== user.displayName) {
+    updates.push(updateProfile(user, { displayName: cleanDisplayName }));
+  }
+
+  if (cleanEmail && cleanEmail !== user.email) {
+    updates.push(updateEmail(user, cleanEmail));
+  }
+
+  if (password?.trim()) {
+    updates.push(updatePassword(user, password.trim()));
+  }
+
+  await Promise.all(updates);
+  await saveUserProfile(user, {
+    displayName: cleanDisplayName,
+    email: cleanEmail,
+    profileNote: cleanProfileNote,
+    updatedAt: serverTimestamp(),
+  });
+
+  return {
+    uid: user.uid,
+    email: cleanEmail,
+    displayName: cleanDisplayName,
+    photoURL: user.photoURL || null,
+    provider: 'password',
+    profileNote: cleanProfileNote,
+  };
+};
+
 export default {
   addMovie,
   getAllMovies,
@@ -214,4 +264,5 @@ export default {
   logoutUser,
   onUserStateChanged,
   getUserProfile,
+  updateAccountSettings,
 };

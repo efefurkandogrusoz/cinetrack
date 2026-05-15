@@ -21,8 +21,10 @@
   align-content: end;
   padding-top: 76px;
   background:
-    linear-gradient(90deg, rgba(24, 24, 24, 0.98), rgba(24, 24, 24, 0.56)),
-    linear-gradient(135deg, rgba(229, 9, 20, 0.42), rgba(255, 255, 255, 0.05));
+    linear-gradient(90deg, rgba(20, 20, 20, 0.98) 0%, rgba(20, 20, 20, 0.7) 55%, rgba(20, 20, 20, 0.25) 100%),
+    linear-gradient(0deg, rgba(229, 9, 20, 0.18), rgba(0, 0, 0, 0.1)),
+    url('https://image.tmdb.org/t/p/w1280/jYEW5xZkZk2WTrdbMGAPFuBqbDc.jpg') center / cover,
+    #181818;
   border-radius: 8px;
   margin-bottom: 24px;
   padding: 38px;

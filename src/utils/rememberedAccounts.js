@@ -35,3 +35,23 @@ export const forgetAccount = (email) => {
 
   localStorage.setItem(REMEMBERED_ACCOUNTS_KEY, JSON.stringify(accounts));
 };
+
+export const updateRememberedAccount = (previousEmail, { email, displayName }) => {
+  const normalizedPrevious = previousEmail?.toLowerCase();
+  const accounts = getRememberedAccounts();
+  const exists = accounts.some(account => account.email === normalizedPrevious);
+
+  if (!exists) return;
+
+  const normalizedEmail = email?.toLowerCase() || normalizedPrevious;
+  const nextAccounts = [
+    {
+      email: normalizedEmail,
+      displayName: displayName || normalizedEmail.split('@')[0],
+      rememberedAt: new Date().toISOString(),
+    },
+    ...accounts.filter(account => account.email !== normalizedPrevious && account.email !== normalizedEmail),
+  ].slice(0, 5);
+
+  localStorage.setItem(REMEMBERED_ACCOUNTS_KEY, JSON.stringify(nextAccounts));
+};

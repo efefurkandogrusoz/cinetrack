@@ -17,14 +17,14 @@ export const GENRE_MAP = {
   36: 'Tarih',
   37: 'Western',
   53: 'Gerilim',
-  80: 'Suc',
+  80: 'Suç',
   99: 'Belgesel',
   878: 'Bilim Kurgu',
   9648: 'Gizem',
-  10402: 'Muzik',
+  10402: 'Müzik',
   10749: 'Romantik',
   10751: 'Aile',
-  10752: 'Savas',
+  10752: 'Savaş',
   10770: 'TV Filmi',
 };
 

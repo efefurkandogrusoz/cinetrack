@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { getPopularMovies, getTopRatedMovies } from '../services/tmdb';
 import { useMovies } from '../context/MovieContext';
 import MovieDetailsModal from './MovieDetailsModal';
@@ -29,16 +29,16 @@ const DiscoveryRows = () => {
   return (
     <section className="discovery-section">
       <DiscoveryRow
-        title="Begenebilecegin Filmler"
-        subtitle="Yuksek puanli, izleme listene yakisacak secimler"
+        title="Haftanın Filmleri"
+        subtitle="Yüksek puanlı, izleme listene yakışacak güçlü seçkiler"
         movies={topRatedMovies}
         existingIds={existingIds}
         onAdd={addMovie}
         onSelect={setSelectedMovie}
       />
       <DiscoveryRow
-        title="Onerilen Filmler"
-        subtitle="TMDB'de one cikan populer filmler"
+        title="Günün Filmleri"
+        subtitle="Bugün öne çıkan popüler filmler ve hızlı ekleme kartları"
         movies={popularMovies}
         existingIds={existingIds}
         onAdd={addMovie}
@@ -50,7 +50,20 @@ const DiscoveryRows = () => {
 };
 
 const DiscoveryRow = ({ title, subtitle, movies, existingIds, onAdd, onSelect }) => {
+  const stripRef = useRef(null);
+
   if (movies.length === 0) return null;
+
+  const scrollStrip = (direction) => {
+    const strip = stripRef.current;
+    if (!strip) return;
+
+    const scrollAmount = Math.max(strip.clientWidth * 0.85, 280);
+    strip.scrollBy({
+      left: direction === 'left' ? -scrollAmount : scrollAmount,
+      behavior: 'smooth',
+    });
+  };
 
   return (
     <div className="discovery-row">
@@ -59,9 +72,17 @@ const DiscoveryRow = ({ title, subtitle, movies, existingIds, onAdd, onSelect })
           <h3>{title}</h3>
           <p>{subtitle}</p>
         </div>
+        <div className="discovery-controls" aria-label={`${title} kaydirma kontrolleri`}>
+          <button type="button" onClick={() => scrollStrip('left')} aria-label="Sola kaydır">
+            <span className="chevron left" aria-hidden="true" />
+          </button>
+          <button type="button" onClick={() => scrollStrip('right')} aria-label="Sağa kaydır">
+            <span className="chevron right" aria-hidden="true" />
+          </button>
+        </div>
       </div>
 
-      <div className="discovery-strip">
+      <div className="discovery-strip" ref={stripRef}>
         {movies.map(movie => (
           <article
             className="discovery-card"

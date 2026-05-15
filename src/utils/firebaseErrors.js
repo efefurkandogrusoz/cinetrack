@@ -2,26 +2,29 @@ export const getFirebaseMessage = (error) => {
   const code = error?.code || '';
 
   if (code.includes('invalid-email')) return 'E-posta formati hatali.';
-  if (code.includes('missing-password')) return 'Sifre alani bos birakilamaz.';
-  if (code.includes('invalid-credential')) return 'E-posta veya sifre hatali.';
-  if (code.includes('user-not-found')) return 'Bu e-posta ile kayitli kullanici yok.';
-  if (code.includes('wrong-password')) return 'Sifre hatali.';
-  if (code.includes('email-already-in-use')) return 'Bu e-posta zaten kayitli.';
-  if (code.includes('weak-password')) return 'Sifre en az 6 karakter olmali.';
+  if (code.includes('missing-password')) return 'Şifre alanı boş bırakılamaz.';
+  if (code.includes('invalid-credential')) return 'E-posta veya şifre hatalı.';
+  if (code.includes('user-not-found')) return 'Bu e-posta ile kayıtlı kullanıcı yok.';
+  if (code.includes('wrong-password')) return 'Şifre hatalı.';
+  if (code.includes('email-already-in-use')) return 'Bu e-posta zaten kayıtlı.';
+  if (code.includes('weak-password')) return 'Şifre en az 6 karakter olmalı.';
+  if (code.includes('requires-recent-login')) return 'Bu değişiklik için çıkış yapıp tekrar giriş yaptıktan sonra yeniden deneyin.';
+  if (code.includes('user-token-expired')) return 'Oturum süresi doldu. Lütfen tekrar giriş yapın.';
+  if (code.includes('credential-already-in-use')) return 'Bu hesap bilgisi başka bir kullanıcı tarafından kullanılıyor.';
   if (code.includes('operation-not-allowed')) {
-    return 'Firebase Authentication icinde Email/Password giris yontemini aktif etmelisin.';
+    return 'Firebase Authentication içinde Email/Password giriş yöntemini aktif etmelisin.';
   }
   if (code.includes('configuration-not-found')) {
-    return 'Firebase Authentication kurulumu bulunamadi. Firebase Console > Authentication bolumunu acip Email/Password etkinlestir.';
+    return 'Firebase Authentication kurulumu bulunamadı. Firebase Console > Authentication bölümünü açıp Email/Password etkinleştir.';
   }
   if (code.includes('unauthorized-domain')) {
-    return 'Bu localhost/domain Firebase Authentication icin yetkili degil. Authorized domains listesine eklemelisin.';
+    return 'Bu localhost/domain Firebase Authentication için yetkili değil. Authorized domains listesine eklemelisin.';
   }
-  if (code.includes('too-many-requests')) return 'Cok fazla deneme yapildi. Biraz bekleyip tekrar dene.';
-  if (code.includes('network-request-failed')) return 'Firebase baglantisi kurulamadi.';
+  if (code.includes('too-many-requests')) return 'Çok fazla deneme yapıldı. Biraz bekleyip tekrar dene.';
+  if (code.includes('network-request-failed')) return 'Firebase bağlantısı kurulamadı.';
   if (code.includes('permission-denied')) {
-    return 'Firebase Firestore users koleksiyonuna yazma izni vermiyor. Rules ayarlarini kontrol et.';
+    return 'Firebase Firestore users koleksiyonuna yazma izni vermiyor. Rules ayarlarını kontrol et.';
   }
 
-  return `Islem tamamlanamadi. Firebase hata kodu: ${code || 'bilinmiyor'}`;
+  return `İşlem tamamlanamadı. Firebase hata kodu: ${code || 'bilinmiyor'}`;
 };

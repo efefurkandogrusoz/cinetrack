@@ -15,7 +15,7 @@ const Favorites = () => {
         <div className="container-fluid">
           <div className="page-header">
             <h2>Favori Filmler</h2>
-            <p>{favoriteMovies.length} favori film</p>
+            <p>{favoriteMovies.length} favori film var</p>
           </div>
           <MovieList movies={favoriteMovies} />
         </div>

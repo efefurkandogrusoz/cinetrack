@@ -15,7 +15,7 @@ const Watched = () => {
       <div className="page-content">
         <div className="container-fluid">
           <div className="page-header">
-            <h2>Izlenen Filmler</h2>
+            <h2>İzlenen Filmler</h2>
             <p>{watchedMovies.length} film izlediniz</p>
           </div>
           <UserInsights />

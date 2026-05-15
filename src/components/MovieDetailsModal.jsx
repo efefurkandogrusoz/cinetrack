@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { getMovieFullDetails } from '../services/tmdb';
 import { useMovies } from '../context/MovieContext';
 import '../styles/components/MovieDetailsModal.css';
@@ -80,9 +81,9 @@ const MovieDetailsModal = ({ movie, onClose }) => {
 
   const backdrop = details?.backdrop || details?.poster;
 
-  return (
-    <div className="movie-modal-layer" role="dialog" aria-modal="true" aria-label={`${activeMovie.title} detaylari`}>
-      <button className="movie-modal-backdrop" type="button" onClick={onClose} aria-label="Detaylari kapat" />
+  const modal = (
+    <div className="movie-modal-layer" role="dialog" aria-modal="true" aria-label={`${activeMovie.title} detayları`}>
+      <button className="movie-modal-backdrop" type="button" onClick={onClose} aria-label="Detayları kapat" />
       <section className="movie-modal">
         <button className="movie-modal-close" type="button" onClick={onClose} aria-label="Kapat">
           X
@@ -90,7 +91,7 @@ const MovieDetailsModal = ({ movie, onClose }) => {
 
         <div className="movie-modal-hero" style={backdrop ? { backgroundImage: `linear-gradient(90deg, #181818 0%, rgba(24, 24, 24, 0.82) 45%, rgba(24, 24, 24, 0.22)), url(${backdrop})` } : undefined}>
           <div className="movie-modal-copy">
-            <p className="eyebrow">Film Detayi</p>
+            <p className="eyebrow">Film Detayı</p>
             <h2>{activeMovie.title}</h2>
             <div className="movie-modal-meta">
               <span>{activeMovie.year}</span>
@@ -98,16 +99,16 @@ const MovieDetailsModal = ({ movie, onClose }) => {
               {activeMovie.rating > 0 && <span>{activeMovie.rating.toFixed(1)} puan</span>}
               {activeMovie.genres?.slice(0, 3).map(genre => <span key={genre}>{genre}</span>)}
             </div>
-            <p>{activeMovie.overview || 'Bu film icin aciklama bulunamadi.'}</p>
+            <p>{activeMovie.overview || 'Bu film için açıklama bulunamadı.'}</p>
             <div className="movie-modal-actions">
               <button type="button" onClick={() => addToList()}>
                 {listedMovie ? 'Listede' : 'Listeye Ekle'}
               </button>
               <button type="button" onClick={handleWatch}>
-                {listedMovie?.watched ? 'Izlendi' : 'Izle'}
+                {listedMovie?.watched ? 'İzlendi' : 'İzle'}
               </button>
               <button type="button" onClick={handleLike}>
-                {listedMovie?.reaction === 'liked' ? 'Begenildi' : 'Begen'}
+                {listedMovie?.reaction === 'liked' ? 'Beğenildi' : 'Beğen'}
               </button>
               <button type="button" onClick={handleFavorite}>
                 {listedMovie?.favorite ? 'Favori' : 'Favorile'}
@@ -124,7 +125,7 @@ const MovieDetailsModal = ({ movie, onClose }) => {
           <div className="movie-modal-panel">
             <h3>Fragman</h3>
             {loading ? (
-              <p>Detaylar yukleniyor...</p>
+              <p>Detaylar yükleniyor...</p>
             ) : details?.trailerKey ? (
               <iframe
                 className="movie-modal-trailer"
@@ -134,7 +135,7 @@ const MovieDetailsModal = ({ movie, onClose }) => {
                 allowFullScreen
               />
             ) : (
-              <p>Bu film icin fragman bulunamadi.</p>
+              <p>Bu film için fragman bulunamadı.</p>
             )}
           </div>
 
@@ -150,13 +151,15 @@ const MovieDetailsModal = ({ movie, onClose }) => {
                 ))}
               </div>
             ) : (
-              <p>Oyuncu bilgisi bulunamadi.</p>
+              <p>Oyuncu bilgisi bulunamadı.</p>
             )}
           </div>
         </div>
       </section>
     </div>
   );
+
+  return createPortal(modal, document.body);
 };
 
 export default MovieDetailsModal;

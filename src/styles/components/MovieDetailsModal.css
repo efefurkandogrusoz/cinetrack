@@ -20,17 +20,17 @@
   width: min(1100px, 100%);
   max-height: calc(100vh - 56px);
   overflow-y: auto;
-  border: 1px solid rgba(229, 9, 20, 0.28);
+  border: 1px solid rgba(229, 9, 20, 0.3);
   border-radius: 8px;
-  background: #1d1d1d;
-  box-shadow: 0 40px 130px rgba(0, 0, 0, 0.7);
-  animation: modalIn 0.26s ease both;
+  background: #131313;
+  box-shadow: 0 40px 130px rgba(0, 0, 0, 0.75);
+  animation: modalIn 0.3s cubic-bezier(0.4, 0, 0.2, 1) both;
 }
 
 @keyframes modalIn {
   from {
     opacity: 0;
-    transform: translateY(18px) scale(0.98);
+    transform: translateY(20px) scale(0.98);
   }
   to {
     opacity: 1;
@@ -47,10 +47,11 @@
   height: 40px;
   border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 50%;
-  background: rgba(0, 0, 0, 0.64);
+  background: rgba(0, 0, 0, 0.7);
   color: #fff;
   cursor: pointer;
   font-weight: 950;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .movie-modal-hero {
@@ -58,15 +59,26 @@
   display: grid;
   align-items: end;
   padding: 44px;
-  background-color: #181818;
+  background-color: #0a0a0a;
   background-position: center;
   background-size: cover;
+  position: relative;
+}
+
+.movie-modal-hero::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.2) 0%, rgba(0, 0, 0, 0.8) 100%);
+  pointer-events: none;
 }
 
 .movie-modal-copy {
   display: grid;
   gap: 14px;
   max-width: 680px;
+  position: relative;
+  z-index: 1;
 }
 
 .movie-modal-copy h2 {
@@ -75,8 +87,10 @@
 }
 
 .movie-modal-copy p {
-  color: #e1e1e1;
+  color: #e8e8e8;
   font-size: 16px;
+  line-height: 1.6;
+  font-weight: 500;
 }
 
 .movie-modal-meta {
@@ -110,6 +124,7 @@
   cursor: pointer;
   font-weight: 950;
   padding: 0 14px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .movie-modal-actions button:first-child {

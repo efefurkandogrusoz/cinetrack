@@ -13,8 +13,8 @@ const Home = () => {
         <div className="container-fluid">
           <div className="page-header hero-header">
             <p className="eyebrow">CineTrack</p>
-            <h2>Film kesfi artik daha hizli.</h2>
-            <p>Navbar'daki buyutecle ara, begendiklerine gore oneriler al ve listeni tek panelden yonet.</p>
+            <h2>Bugün ne izleyeceğini saniyeler içinde bul.</h2>
+            <p>Canlı arama, haftalık seçkiler ve kişisel listelerin tek sinematik panelde birleşiyor.</p>
           </div>
           <DiscoveryRows />
           <UserInsights />

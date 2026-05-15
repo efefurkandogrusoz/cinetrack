@@ -15,7 +15,7 @@ const AppRoutes = () => {
     return (
       <main className="app-loading">
         <span className="brand-mark">CT</span>
-        <p>Yukleniyor...</p>
+        <p>Yükleniyor...</p>
       </main>
     );
   }

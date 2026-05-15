@@ -118,7 +118,8 @@ export const MovieProvider = ({ children }) => {
           payload: {
             uid: user.uid,
             email: user.email,
-            displayName: user.displayName || user.email?.split('@')[0] || 'Kullanici',
+            displayName: user.displayName || user.email?.split('@')[0] || 'Kullanıcı',
+            profileNote: '',
           },
         });
 
@@ -267,6 +268,13 @@ export const MovieProvider = ({ children }) => {
     dispatch({ type: 'CLEAR_ERROR' });
   }, []);
 
+  const updateAccountSettings = useCallback(async (updates) => {
+    const nextProfile = await firebaseService.updateAccountSettings(updates);
+    dispatch({ type: 'SET_USER', payload: firebaseService.auth.currentUser });
+    dispatch({ type: 'SET_USER_PROFILE', payload: nextProfile });
+    return nextProfile;
+  }, []);
+
   const getFilteredMovies = () => {
     switch (state.filter) {
       case 'watched':
@@ -292,6 +300,7 @@ export const MovieProvider = ({ children }) => {
     setFilter,
     setSearchResults,
     clearError,
+    updateAccountSettings,
   };
 
   return (

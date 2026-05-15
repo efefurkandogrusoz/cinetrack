@@ -11,9 +11,9 @@ const MovieList = ({ movies = null }) => {
     return (
       <div className="loading-container">
         <div className="spinner-border text-primary" role="status">
-          <span className="visually-hidden">Yukleniyor...</span>
+          <span className="visually-hidden">Yükleniyor...</span>
         </div>
-        <p className="mt-3">Filmler yukleniyor...</p>
+        <p className="mt-3">Filmler yükleniyor...</p>
       </div>
     );
   }
@@ -22,8 +22,8 @@ const MovieList = ({ movies = null }) => {
     return (
       <div className="empty-state">
         <div className="empty-icon">CT</div>
-        <h4>Film Bulunamadi</h4>
-        <p>Film listesi bos. Yeni filmler eklemek icin arama yapin.</p>
+        <h4>Film Bulunamadı</h4>
+        <p>Film listesi boş. Yeni filmler eklemek için arama yapın.</p>
       </div>
     );
   }
@@ -32,9 +32,9 @@ const MovieList = ({ movies = null }) => {
     <div className="movie-list-container">
       <div className="movie-stats">
         <span className="stats-item">Toplam <strong>{moviesToDisplay.length}</strong></span>
-        <span className="stats-item">Izlendi <strong>{moviesToDisplay.filter(movie => movie.watched).length}</strong></span>
+        <span className="stats-item">İzlendi <strong>{moviesToDisplay.filter(movie => movie.watched).length}</strong></span>
         <span className="stats-item">Favori <strong>{moviesToDisplay.filter(movie => movie.favorite).length}</strong></span>
-        <span className="stats-item">Begendim <strong>{moviesToDisplay.filter(movie => movie.reaction === 'liked').length}</strong></span>
+        <span className="stats-item">Beğendim <strong>{moviesToDisplay.filter(movie => movie.reaction === 'liked').length}</strong></span>
       </div>
 
       <div className="movie-grid">

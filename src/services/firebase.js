@@ -58,6 +58,23 @@ const saveUserProfile = async (user, extra = {}) => {
   }, { merge: true });
 };
 
+const withTimeout = (promise, timeoutMs, message) => {
+  let timeoutId;
+  const timeout = new Promise((_, reject) => {
+    timeoutId = window.setTimeout(() => reject(new Error(message)), timeoutMs);
+  });
+
+  return Promise.race([promise, timeout]).finally(() => {
+    window.clearTimeout(timeoutId);
+  });
+};
+
+const saveUserProfileSafely = (user, extra = {}) => {
+  saveUserProfile(user, extra).catch((error) => {
+    console.warn('User profile could not be synced:', error);
+  });
+};
+
 // Add movie to Firestore
 export const addMovie = async (movie) => {
   try {
@@ -87,7 +104,11 @@ export const getAllMovies = async () => {
       collection(db, MOVIES_COLLECTION),
       where('userId', '==', user.uid)
     );
-    const querySnapshot = await getDocs(moviesQuery);
+    const querySnapshot = await withTimeout(
+      getDocs(moviesQuery),
+      5000,
+      'Movies request timed out'
+    );
     return querySnapshot.docs.map(doc => ({
       docId: doc.id,
       ...doc.data()
@@ -127,8 +148,10 @@ export const registerUser = async (email, password, displayName = '') => {
     await authPersistenceReady;
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     const cleanDisplayName = displayName.trim() || email.split('@')[0];
-    await updateProfile(userCredential.user, { displayName: cleanDisplayName });
-    await saveUserProfile(userCredential.user, {
+    updateProfile(userCredential.user, { displayName: cleanDisplayName }).catch((error) => {
+      console.warn('Display name could not be synced:', error);
+    });
+    saveUserProfileSafely(userCredential.user, {
       displayName: cleanDisplayName,
       createdAt: serverTimestamp(),
       lastLoginAt: serverTimestamp(),
@@ -144,7 +167,7 @@ export const loginUser = async (email, password) => {
   try {
     await authPersistenceReady;
     const userCredential = await signInWithEmailAndPassword(auth, email, password);
-    await saveUserProfile(userCredential.user, {
+    saveUserProfileSafely(userCredential.user, {
       lastLoginAt: serverTimestamp(),
     });
     return userCredential.user;
@@ -169,7 +192,11 @@ export const onUserStateChanged = (callback) => {
 
 export const getUserProfile = async (uid) => {
   try {
-    const snapshot = await getDoc(doc(db, USERS_COLLECTION, uid));
+    const snapshot = await withTimeout(
+      getDoc(doc(db, USERS_COLLECTION, uid)),
+      4000,
+      'User profile request timed out'
+    );
     return snapshot.exists() ? snapshot.data() : null;
   } catch (error) {
     console.error('Error getting user profile:', error);

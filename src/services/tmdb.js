@@ -4,6 +4,7 @@
 
 const API_BASE_URL = 'https://api.themoviedb.org/3';
 const POSTER_BASE_URL = 'https://image.tmdb.org/t/p/w500';
+const BACKDROP_BASE_URL = 'https://image.tmdb.org/t/p/w1280';
 
 export const GENRE_MAP = {
   12: 'Macera',
@@ -74,6 +75,38 @@ export const getMovieDetails = async (movieId) => {
     return formatMovie(data);
   } catch (error) {
     console.error('Error fetching movie details:', error);
+    return null;
+  }
+};
+
+export const getMovieFullDetails = async (movieId) => {
+  try {
+    const apiKey = getApiKey();
+    if (!apiKey) return null;
+
+    const response = await fetch(
+      `${API_BASE_URL}/movie/${movieId}?api_key=${apiKey}&append_to_response=credits,videos`
+    );
+
+    if (!response.ok) throw new Error('Failed to fetch full movie details');
+
+    const data = await response.json();
+    const trailer = (data.videos?.results || []).find(video =>
+      video.site === 'YouTube' && video.type === 'Trailer'
+    ) || (data.videos?.results || []).find(video => video.site === 'YouTube');
+
+    return {
+      ...formatMovie(data),
+      runtime: data.runtime || null,
+      cast: (data.credits?.cast || []).slice(0, 8).map(actor => ({
+        id: actor.id,
+        name: actor.name,
+        character: actor.character,
+      })),
+      trailerKey: trailer?.key || null,
+    };
+  } catch (error) {
+    console.error('Error fetching full movie details:', error);
     return null;
   }
 };
@@ -172,10 +205,12 @@ const formatMovie = (movie) => ({
   id: movie.id,
   title: movie.title,
   poster_path: movie.poster_path,
+  backdrop_path: movie.backdrop_path,
   release_date: movie.release_date || '',
   overview: movie.overview || '',
   rating: movie.vote_average || 0,
   poster: movie.poster_path ? `${POSTER_BASE_URL}${movie.poster_path}` : null,
+  backdrop: movie.backdrop_path ? `${BACKDROP_BASE_URL}${movie.backdrop_path}` : null,
   year: movie.release_date ? new Date(movie.release_date).getFullYear() : 'N/A',
   genre_ids: movie.genre_ids || movie.genres?.map(genre => genre.id) || [],
   genres: (movie.genre_ids || movie.genres?.map(genre => genre.id) || [])
@@ -194,6 +229,7 @@ const formatMovies = (movies) => {
 export default {
   searchMovies,
   getMovieDetails,
+  getMovieFullDetails,
   discoverMoviesByGenres,
   getPopularMovies,
   getTopRatedMovies,

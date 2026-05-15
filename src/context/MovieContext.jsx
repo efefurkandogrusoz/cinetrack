@@ -108,17 +108,31 @@ export const MovieProvider = ({ children }) => {
   // Load movies on mount
   useEffect(() => {
     // Listen for auth state changes
-    const unsubscribe = firebaseService.onUserStateChanged(async (user) => {
+    const unsubscribe = firebaseService.onUserStateChanged((user) => {
       dispatch({ type: 'SET_USER', payload: user });
+      dispatch({ type: 'SET_AUTH_READY', payload: true });
+
       if (user) {
-        const profile = await firebaseService.getUserProfile(user.uid);
-        dispatch({ type: 'SET_USER_PROFILE', payload: profile });
+        dispatch({
+          type: 'SET_USER_PROFILE',
+          payload: {
+            uid: user.uid,
+            email: user.email,
+            displayName: user.displayName || user.email?.split('@')[0] || 'Kullanici',
+          },
+        });
+
+        firebaseService.getUserProfile(user.uid).then((profile) => {
+          if (profile) {
+            dispatch({ type: 'SET_USER_PROFILE', payload: profile });
+          }
+        });
+
         loadMovies(true);
       } else {
         dispatch({ type: 'SET_USER_PROFILE', payload: null });
         loadMovies(false);
       }
-      dispatch({ type: 'SET_AUTH_READY', payload: true });
     });
 
     return () => unsubscribe();
@@ -146,9 +160,13 @@ export const MovieProvider = ({ children }) => {
         year: movieData.year,
         genre_ids: movieData.genre_ids || [],
         genres: movieData.genres || [],
-        watched: false,
-        favorite: false,
-        reaction: null,
+        backdrop: movieData.backdrop || null,
+        backdrop_path: movieData.backdrop_path || null,
+        trailerKey: movieData.trailerKey || null,
+        runtime: movieData.runtime || null,
+        watched: movieData.watched || false,
+        favorite: movieData.favorite || false,
+        reaction: movieData.reaction || null,
         rating: movieData.rating || 0,
         overview: movieData.overview || '',
       };

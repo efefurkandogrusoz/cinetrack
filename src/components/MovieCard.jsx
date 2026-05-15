@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useMovies } from '../context/MovieContext';
 import { getMovieTrailer } from '../services/tmdb';
+import MovieDetailsModal from './MovieDetailsModal';
 import '../styles/components/MovieCard.css';
 
 const MovieCard = ({ movie }) => {
@@ -8,7 +9,10 @@ const MovieCard = ({ movie }) => {
   const [hovered, setHovered] = useState(false);
   const [trailerKey, setTrailerKey] = useState(movie.trailerKey || null);
   const [trailerChecked, setTrailerChecked] = useState(Boolean(movie.trailerKey));
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const docId = movie.docId || movie.id;
+
+  const stopAction = (event) => event.stopPropagation();
 
   const handleDelete = () => {
     if (window.confirm(`"${movie.title}" silinsin mi?`)) {
@@ -26,7 +30,18 @@ const MovieCard = ({ movie }) => {
   };
 
   return (
-    <div className="movie-card" onMouseEnter={handleMouseEnter} onMouseLeave={() => setHovered(false)}>
+    <>
+    <div
+      className="movie-card"
+      onClick={() => setDetailsOpen(true)}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={() => setHovered(false)}
+      role="button"
+      tabIndex={0}
+      onKeyDown={event => {
+        if (event.key === 'Enter') setDetailsOpen(true);
+      }}
+    >
       <div className="card-poster-container">
         {hovered && trailerKey ? (
           <iframe
@@ -57,7 +72,10 @@ const MovieCard = ({ movie }) => {
           <div className="card-actions">
             <button
               className={`action-btn favorite-btn ${movie.favorite ? 'active' : ''}`}
-              onClick={() => toggleFavorite(docId, movie.favorite || false)}
+              onClick={event => {
+                stopAction(event);
+                toggleFavorite(docId, movie.favorite || false);
+              }}
               type="button"
               title="Favorilere ekle"
             >
@@ -65,12 +83,18 @@ const MovieCard = ({ movie }) => {
             </button>
             <button
               className={`action-btn watch-btn ${movie.watched ? 'active' : ''}`}
-              onClick={() => toggleWatched(docId, movie.watched)}
+              onClick={event => {
+                stopAction(event);
+                toggleWatched(docId, movie.watched);
+              }}
               type="button"
             >
               {movie.watched ? 'Izlendi' : 'Izlenecek'}
             </button>
-            <button className="action-btn delete-btn" onClick={handleDelete} type="button">
+            <button className="action-btn delete-btn" onClick={event => {
+              stopAction(event);
+              handleDelete();
+            }} type="button">
               Sil
             </button>
           </div>
@@ -88,14 +112,20 @@ const MovieCard = ({ movie }) => {
           <div className="reaction-row" aria-label="Film begenisi">
             <button
               className={movie.reaction === 'liked' ? 'reaction active liked' : 'reaction'}
-              onClick={() => setReaction(docId, 'liked')}
+              onClick={event => {
+                stopAction(event);
+                setReaction(docId, 'liked');
+              }}
               type="button"
             >
               Begendim
             </button>
             <button
               className={movie.reaction === 'disliked' ? 'reaction active disliked' : 'reaction'}
-              onClick={() => setReaction(docId, 'disliked')}
+              onClick={event => {
+                stopAction(event);
+                setReaction(docId, 'disliked');
+              }}
               type="button"
             >
               Begenmedim
@@ -104,6 +134,8 @@ const MovieCard = ({ movie }) => {
         )}
       </div>
     </div>
+    {detailsOpen && <MovieDetailsModal movie={movie} onClose={() => setDetailsOpen(false)} />}
+    </>
   );
 };
 

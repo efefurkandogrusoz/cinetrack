@@ -120,6 +120,7 @@
   padding: 10px;
   border-radius: 7px;
   border: 1px solid transparent;
+  cursor: pointer;
 }
 
 .search-result-item:hover {

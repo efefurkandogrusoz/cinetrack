@@ -1,12 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { getPopularMovies, getTopRatedMovies } from '../services/tmdb';
 import { useMovies } from '../context/MovieContext';
+import MovieDetailsModal from './MovieDetailsModal';
 import '../styles/components/DiscoveryRows.css';
 
 const DiscoveryRows = () => {
   const { addMovie, movies } = useMovies();
   const [popularMovies, setPopularMovies] = useState([]);
   const [topRatedMovies, setTopRatedMovies] = useState([]);
+  const [selectedMovie, setSelectedMovie] = useState(null);
   const existingIds = new Set(movies.map(movie => movie.id));
 
   useEffect(() => {
@@ -32,6 +34,7 @@ const DiscoveryRows = () => {
         movies={topRatedMovies}
         existingIds={existingIds}
         onAdd={addMovie}
+        onSelect={setSelectedMovie}
       />
       <DiscoveryRow
         title="Onerilen Filmler"
@@ -39,12 +42,14 @@ const DiscoveryRows = () => {
         movies={popularMovies}
         existingIds={existingIds}
         onAdd={addMovie}
+        onSelect={setSelectedMovie}
       />
+      {selectedMovie && <MovieDetailsModal movie={selectedMovie} onClose={() => setSelectedMovie(null)} />}
     </section>
   );
 };
 
-const DiscoveryRow = ({ title, subtitle, movies, existingIds, onAdd }) => {
+const DiscoveryRow = ({ title, subtitle, movies, existingIds, onAdd, onSelect }) => {
   if (movies.length === 0) return null;
 
   return (
@@ -58,12 +63,28 @@ const DiscoveryRow = ({ title, subtitle, movies, existingIds, onAdd }) => {
 
       <div className="discovery-strip">
         {movies.map(movie => (
-          <article className="discovery-card" key={movie.id}>
+          <article
+            className="discovery-card"
+            key={movie.id}
+            onClick={() => onSelect(movie)}
+            role="button"
+            tabIndex={0}
+            onKeyDown={event => {
+              if (event.key === 'Enter') onSelect(movie);
+            }}
+          >
             <img src={movie.poster} alt={movie.title} />
             <div className="discovery-card-info">
               <h4>{movie.title}</h4>
               <p>{movie.year} {movie.genres?.[0] ? `- ${movie.genres[0]}` : ''}</p>
-              <button type="button" disabled={existingIds.has(movie.id)} onClick={() => onAdd(movie)}>
+              <button
+                type="button"
+                disabled={existingIds.has(movie.id)}
+                onClick={event => {
+                  event.stopPropagation();
+                  onAdd(movie);
+                }}
+              >
                 {existingIds.has(movie.id) ? 'Listede' : 'Listeye Ekle'}
               </button>
             </div>

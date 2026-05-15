@@ -25,7 +25,7 @@ const AppRoutes = () => {
   }
 
   return (
-    <Router>
+    <Router basename={import.meta.env.BASE_URL}>
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/watched" element={<Watched />} />

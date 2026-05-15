@@ -1,11 +1,13 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { searchMovies } from '../services/tmdb';
 import { useMovies } from '../context/MovieContext';
+import MovieDetailsModal from './MovieDetailsModal';
 import '../styles/components/MovieSearch.css';
 
 const MovieSearch = ({ autoFocus = false, onAdd = null }) => {
   const [query, setQuery] = useState('');
   const [searching, setSearching] = useState(false);
+  const [selectedMovie, setSelectedMovie] = useState(null);
   const inputRef = useRef(null);
   const { searchResults, setSearchResults, addMovie } = useMovies();
 
@@ -80,7 +82,16 @@ const MovieSearch = ({ autoFocus = false, onAdd = null }) => {
             <h6 className="results-title">{searchResults.length} sonuc bulundu</h6>
             <div className="results-grid">
               {searchResults.map((movie) => (
-                <div key={movie.id} className="search-result-item">
+                <div
+                  key={movie.id}
+                  className="search-result-item"
+                  onClick={() => setSelectedMovie(movie)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={event => {
+                    if (event.key === 'Enter') setSelectedMovie(movie);
+                  }}
+                >
                   {movie.poster ? (
                     <img src={movie.poster} alt={movie.title} className="result-poster" />
                   ) : (
@@ -95,7 +106,13 @@ const MovieSearch = ({ autoFocus = false, onAdd = null }) => {
                     {movie.rating > 0 && (
                       <p className="result-rating">{movie.rating.toFixed(1)} IMDb</p>
                     )}
-                    <button className="btn btn-sm btn-primary mt-2 w-100" onClick={() => handleAddMovie(movie)}>
+                    <button
+                      className="btn btn-sm btn-primary mt-2 w-100"
+                      onClick={event => {
+                        event.stopPropagation();
+                        handleAddMovie(movie);
+                      }}
+                    >
                       Listeye Ekle
                     </button>
                   </div>
@@ -111,6 +128,7 @@ const MovieSearch = ({ autoFocus = false, onAdd = null }) => {
           </div>
         )}
       </div>
+      {selectedMovie && <MovieDetailsModal movie={selectedMovie} onClose={() => setSelectedMovie(null)} />}
     </div>
   );
 };

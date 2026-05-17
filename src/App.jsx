@@ -6,6 +6,8 @@ import Home from './pages/Home';
 import Watched from './pages/Watched';
 import Watchlist from './pages/Watchlist';
 import Favorites from './pages/Favorites';
+import AccountSettings from './pages/AccountSettings';
+import Settings from './pages/Settings';
 import './styles/global.css';
 
 const AppRoutes = () => {
@@ -31,6 +33,8 @@ const AppRoutes = () => {
         <Route path="/watched" element={<Watched />} />
         <Route path="/watchlist" element={<Watchlist />} />
         <Route path="/favorites" element={<Favorites />} />
+        <Route path="/account-settings" element={<AccountSettings />} />
+        <Route path="/settings" element={<Settings />} />
       </Routes>
     </Router>
   );

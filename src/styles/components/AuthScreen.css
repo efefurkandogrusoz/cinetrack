@@ -1,154 +1,4 @@
-.profile-select-screen {
-  display: grid;
-  min-height: 100vh;
-  place-items: center;
-  padding: 42px 24px;
-  background:
-    radial-gradient(circle at 50% 0%, rgba(229, 9, 20, 0.2), transparent 34%),
-    linear-gradient(180deg, #151515 0%, #0f0f0f 100%);
-}
-
-.profile-select-panel {
-  width: min(980px, 100%);
-  text-align: center;
-}
-
-.profile-select-panel h1 {
-  margin: 6px 0 48px;
-  color: #fff;
-  font-size: clamp(46px, 7vw, 78px);
-  font-weight: 500;
-  letter-spacing: 0;
-}
-
-.profile-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: 34px;
-  align-items: start;
-}
-
-.profile-card {
-  position: relative;
-  display: grid;
-  justify-items: center;
-  gap: 10px;
-  min-width: 0;
-  border: 0;
-  background: transparent;
-  color: #8f8f8f;
-  cursor: pointer;
-  text-align: center;
-}
-
-.profile-avatar,
-.profile-add-icon {
-  position: relative;
-  display: grid;
-  place-items: center;
-  width: min(190px, 100%);
-  aspect-ratio: 1;
-  border: 3px solid transparent;
-  border-radius: 7px;
-  color: #fff;
-  font-size: clamp(42px, 7vw, 72px);
-  font-weight: 950;
-  box-shadow: 0 20px 70px rgba(0, 0, 0, 0.38);
-  transition:
-    border-color 0.24s cubic-bezier(0.4, 0, 0.2, 1),
-    filter 0.24s cubic-bezier(0.4, 0, 0.2, 1),
-    transform 0.24s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.profile-avatar {
-  background:
-    radial-gradient(circle at 25% 24%, rgba(255, 255, 255, 0.26), transparent 18%),
-    linear-gradient(135deg, #1167e8, #1fa2ff);
-}
-
-.profile-avatar.tone-1 {
-  background:
-    radial-gradient(circle at 25% 24%, rgba(255, 255, 255, 0.28), transparent 18%),
-    linear-gradient(135deg, #f0bd00, #ffdf54);
-}
-
-.profile-avatar.tone-2 {
-  background:
-    linear-gradient(90deg, #2f7f3d 0 20%, #f7b83f 20% 42%, #ef5142 42% 56%, #ef54bd 56% 78%, #3979e7 78% 100%);
-}
-
-.profile-avatar.tone-3 {
-  background:
-    radial-gradient(circle at 24% 24%, rgba(255, 255, 255, 0.28), transparent 18%),
-    linear-gradient(135deg, #5b43d6, #e50914);
-}
-
-.profile-card:hover .profile-avatar,
-.profile-card:hover .profile-add-icon {
-  border-color: #fff;
-  filter: brightness(1.08);
-  transform: translateY(-4px);
-}
-
-.profile-card strong {
-  max-width: 100%;
-  overflow: hidden;
-  color: #9f9f9f;
-  font-size: 24px;
-  font-weight: 500;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.profile-card:hover strong {
-  color: #fff;
-}
-
-.profile-card small {
-  max-width: 100%;
-  overflow: hidden;
-  color: #777;
-  font-size: 13px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.profile-delete {
-  min-height: 30px;
-  padding: 5px 9px;
-  border-radius: 6px;
-  color: #9b9b9b;
-  font-size: 12px;
-  font-weight: 900;
-}
-
-.profile-delete:hover {
-  background: rgba(229, 9, 20, 0.18);
-  color: #fff;
-}
-
-.profile-add-icon {
-  background: #8b8b8b;
-}
-
-.profile-add-icon::before,
-.profile-add-icon::after {
-  content: "";
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 72px;
-  height: 13px;
-  border-radius: 999px;
-  background: #111;
-  transform: translate(-50%, -50%);
-}
-
-.profile-add-icon::after {
-  transform: translate(-50%, -50%) rotate(90deg);
-}
-
-.auth-screen {
+﻿.auth-screen {
   display: grid;
   grid-template-columns: minmax(0, 1.05fr) minmax(360px, 460px);
   gap: 28px;
@@ -163,7 +13,7 @@
   position: relative;
   min-height: 660px;
   overflow: hidden;
-  border: 1px solid rgba(229, 9, 20, 0.18);
+  border: 1px solid rgba(var(--primary-rgb), 0.18);
   border-radius: 8px;
   background:
     linear-gradient(90deg, rgba(17, 17, 17, 0.98) 0%, rgba(20, 20, 20, 0.78) 54%, rgba(20, 20, 20, 0.34) 100%),
@@ -176,7 +26,7 @@
   inset: auto 0 0;
   height: 42%;
   content: "";
-  background: linear-gradient(0deg, rgba(229, 9, 20, 0.2), transparent);
+  background: linear-gradient(0deg, rgba(var(--primary-rgb), 0.2), transparent);
   pointer-events: none;
 }
 
@@ -208,14 +58,14 @@
 
 .auth-poster-strip span:nth-child(2) {
   background:
-    linear-gradient(180deg, rgba(229, 9, 20, 0.18), rgba(0, 0, 0, 0.5)),
+    linear-gradient(180deg, rgba(var(--primary-rgb), 0.18), rgba(0, 0, 0, 0.5)),
     url('https://image.tmdb.org/t/p/w500/gEU2QniE6E77NI6lCU6MxlNBvIx.jpg') center / cover,
     #1f1f1f;
 }
 
 .auth-poster-strip span:nth-child(3) {
   background:
-    linear-gradient(180deg, rgba(160, 160, 160, 0.12), rgba(229, 9, 20, 0.18)),
+    linear-gradient(180deg, rgba(160, 160, 160, 0.12), rgba(var(--primary-rgb), 0.18)),
     url('https://image.tmdb.org/t/p/w500/d5NXSklXo0qyIYkgV94XAgMIckC.jpg') center / cover,
     #181818;
 }
@@ -265,109 +115,13 @@
   box-shadow: 0 28px 80px rgba(0, 0, 0, 0.5);
 }
 
-.account-picker {
-  display: grid;
-  gap: 12px;
-  padding: 14px;
-  border: 1px solid rgba(229, 9, 20, 0.2);
-  border-radius: 8px;
-  background: rgba(229, 9, 20, 0.07);
-}
-
-.account-picker-head {
-  display: grid;
-  gap: 4px;
-}
-
-.account-picker-head h2,
 .auth-card-head h2 {
   font-size: 28px;
 }
 
-.account-list {
-  display: grid;
-  gap: 8px;
-}
-
-.account-choice {
-  display: grid;
-  grid-template-columns: 44px 1fr auto;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-  padding: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 8px;
-  background: rgba(0, 0, 0, 0.24);
-  color: #fff;
-  cursor: pointer;
-  text-align: left;
-}
-
-.account-choice.active,
-.account-choice:hover {
-  border-color: rgba(229, 9, 20, 0.8);
-  background: rgba(229, 9, 20, 0.13);
-}
-
-.account-avatar {
-  display: grid;
-  place-items: center;
-  width: 44px;
-  height: 44px;
-  border-radius: 7px;
-  background: #e50914;
-  color: #fff;
-  font-weight: 950;
-}
-
-.account-choice strong,
-.account-choice small {
-  display: block;
-}
-
-.account-choice small {
-  margin-top: 2px;
-  color: #9c9c9c;
-  font-size: 12px;
-}
-
-.forget-account {
-  padding: 6px 8px;
-  border-radius: 6px;
-  color: #bfbfbf;
-  font-size: 12px;
-  font-weight: 900;
-}
-
-.forget-account:hover {
-  background: rgba(255, 255, 255, 0.1);
-  color: #fff;
-}
-
 .auth-card-head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
+  display: grid;
   gap: 6px;
-}
-
-.profile-back {
-  flex: 0 0 auto;
-  min-height: 36px;
-  padding: 0 11px;
-  border: 1px solid rgba(255, 255, 255, 0.13);
-  border-radius: 7px;
-  background: rgba(255, 255, 255, 0.07);
-  color: #fff;
-  cursor: pointer;
-  font-size: 12px;
-  font-weight: 900;
-}
-
-.profile-back:hover {
-  border-color: rgba(229, 9, 20, 0.82);
-  background: rgba(229, 9, 20, 0.18);
 }
 
 .auth-mode-switch {
@@ -391,7 +145,7 @@
 }
 
 .auth-mode-switch button.active {
-  background: #e50914;
+  background: var(--primary-color);
   color: #fff;
 }
 
@@ -431,14 +185,14 @@
 .remember-row input {
   width: 18px;
   height: 18px;
-  accent-color: #e50914;
+  accent-color: var(--primary-color);
 }
 
 .auth-error {
   padding: 10px 12px;
-  border: 1px solid rgba(229, 9, 20, 0.4);
+  border: 1px solid rgba(var(--primary-rgb), 0.4);
   border-radius: 7px;
-  background: rgba(229, 9, 20, 0.12);
+  background: rgba(var(--primary-rgb), 0.12);
   color: #ffbcbc;
   font-size: 13px;
 }
@@ -447,7 +201,7 @@
   min-height: 48px;
   border: 0;
   border-radius: 7px;
-  background: #e50914;
+  background: var(--primary-color);
   color: #fff;
   cursor: pointer;
   font-weight: 900;
@@ -460,11 +214,6 @@
 }
 
 @media (max-width: 900px) {
-  .profile-grid {
-    grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
-    gap: 24px;
-  }
-
   .auth-screen {
     grid-template-columns: 1fr;
   }
@@ -481,25 +230,6 @@
 }
 
 @media (max-width: 560px) {
-  .profile-select-screen {
-    align-items: start;
-    padding: 30px 18px;
-  }
-
-  .profile-select-panel h1 {
-    margin-bottom: 30px;
-    font-size: 42px;
-  }
-
-  .profile-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 20px;
-  }
-
-  .profile-card strong {
-    font-size: 19px;
-  }
-
   .auth-screen {
     width: min(100vw - 24px, 1180px);
     padding: 18px 0;
@@ -521,13 +251,5 @@
   .auth-card {
     padding: 20px;
   }
-
-  .account-choice {
-    grid-template-columns: 40px 1fr;
-  }
-
-  .forget-account {
-    grid-column: 2;
-    width: max-content;
-  }
 }
+

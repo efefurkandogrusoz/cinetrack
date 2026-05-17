@@ -8,7 +8,9 @@ const MovieSearch = ({ autoFocus = false, onAdd = null, compact = false }) => {
   const [query, setQuery] = useState('');
   const [searching, setSearching] = useState(false);
   const [selectedMovie, setSelectedMovie] = useState(null);
+  const [resultsVisible, setResultsVisible] = useState(false);
   const inputRef = useRef(null);
+  const containerRef = useRef(null);
   const { searchResults, setSearchResults, addMovie } = useMovies();
 
   useEffect(() => {
@@ -24,6 +26,7 @@ const MovieSearch = ({ autoFocus = false, onAdd = null, compact = false }) => {
       const resetTimer = window.setTimeout(() => {
         setSearchResults([]);
         setSearching(false);
+        setResultsVisible(false);
       }, 0);
       return () => window.clearTimeout(resetTimer);
     }
@@ -34,6 +37,7 @@ const MovieSearch = ({ autoFocus = false, onAdd = null, compact = false }) => {
       const results = await searchMovies(searchQuery);
       if (!cancelled) {
         setSearchResults(results);
+        setResultsVisible(true);
         setSearching(false);
       }
     }, 350);
@@ -56,8 +60,28 @@ const MovieSearch = ({ autoFocus = false, onAdd = null, compact = false }) => {
     setSearchResults([]);
   };
 
+  const handleResultsClick = (e) => {
+    if (e.target === e.currentTarget) {
+      setSearchResults([]);
+    }
+  };
+
+  useEffect(() => {
+    const handleDocClick = (e) => {
+      if (containerRef.current && !containerRef.current.contains(e.target)) {
+        setSearchResults([]);
+        setResultsVisible(false);
+        setQuery('');
+        setSearching(false);
+      }
+    };
+
+    document.addEventListener('click', handleDocClick);
+    return () => document.removeEventListener('click', handleDocClick);
+  }, [setSearchResults]);
+
   return (
-    <div className={compact ? 'movie-search-container compact' : 'movie-search-container'}>
+    <div ref={containerRef} className={compact ? 'movie-search-container compact' : 'movie-search-container'}>
       <div className="search-box">
         <div className="search-input-wrap">
           {!compact && <span className="search-prefix">Ara</span>}
@@ -70,22 +94,21 @@ const MovieSearch = ({ autoFocus = false, onAdd = null, compact = false }) => {
             onChange={event => setQuery(event.target.value)}
           />
           {searching && <span className="search-status">Aranıyor</span>}
-          {query && (
-            <button className="clear-search" type="button" onClick={handleClear} aria-label="Aramayı temizle">
-              X
-            </button>
-          )}
         </div>
 
-        {searchResults.length > 0 && (
-          <div className="search-results">
+        {resultsVisible && searchResults.length > 0 && (
+          <div className="search-results" onClick={handleResultsClick}>
             <h6 className="results-title">{searchResults.length} sonuç bulundu</h6>
             <div className="results-grid">
               {searchResults.map((movie) => (
                 <div
                   key={movie.id}
                   className="search-result-item"
-                  onClick={() => setSelectedMovie(movie)}
+                  onClick={() => {
+                    setSelectedMovie(movie);
+                    setSearchResults([]);
+                    setResultsVisible(false);
+                  }}
                   role="button"
                   tabIndex={0}
                   onKeyDown={event => {

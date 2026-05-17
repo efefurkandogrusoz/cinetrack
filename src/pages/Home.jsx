@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import DiscoveryRows from '../components/DiscoveryRows';
 import MovieList from '../components/MovieList';
 import Navbar from '../components/Navbar';
@@ -6,6 +7,23 @@ import UserInsights from '../components/UserInsights';
 import '../styles/pages/pages.css';
 
 const Home = () => {
+  const location = useLocation();
+
+  useEffect(() => {
+    if (!location.state?.scrollToMyList && location.hash !== '#my-list') {
+      return undefined;
+    }
+
+    const frameId = window.requestAnimationFrame(() => {
+      document.getElementById('my-list')?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start',
+      });
+    });
+
+    return () => window.cancelAnimationFrame(frameId);
+  }, [location.hash, location.key, location.state]);
+
   return (
     <div className="page-container">
       <Navbar />
@@ -18,7 +36,7 @@ const Home = () => {
           </div>
           <DiscoveryRows />
           <UserInsights />
-          <MovieList />
+          <MovieList listId="my-list" />
         </div>
       </div>
     </div>

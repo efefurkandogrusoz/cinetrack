@@ -1,4 +1,4 @@
-.discovery-section {
+﻿.discovery-section {
   display: grid;
   gap: 28px;
   margin: 0 0 32px;
@@ -52,9 +52,9 @@
 }
 
 .discovery-controls button:hover {
-  border-color: rgba(229, 9, 20, 0.88);
-  background: rgba(229, 9, 20, 0.18);
-  box-shadow: 0 0 26px rgba(229, 9, 20, 0.22);
+  border-color: rgba(var(--primary-rgb), 0.88);
+  background: rgba(var(--primary-rgb), 0.18);
+  box-shadow: 0 0 26px rgba(var(--primary-rgb), 0.22);
 }
 
 .chevron {
@@ -136,7 +136,7 @@
   min-height: 34px;
   border: 0;
   border-radius: 6px;
-  background: #e50914;
+  background: var(--primary-color);
   color: #fff;
   cursor: pointer;
   font-size: 12px;
@@ -167,3 +167,4 @@
     min-height: 250px;
   }
 }
+

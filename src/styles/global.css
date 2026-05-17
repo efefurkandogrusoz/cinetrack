@@ -9,6 +9,8 @@
 :root {
   --primary-color: #e50914;
   --primary-dark: #a4060e;
+  --primary-hover: #f01824;
+  --primary-rgb: 229, 9, 20;
   --bg-primary: #0f0f0f;
   --bg-secondary: #1a1a1a;
   --bg-tertiary: #242424;
@@ -17,6 +19,41 @@
   --text-secondary: #d0d0d0;
   --text-muted: #9a9a9a;
   --border-color: rgba(255, 255, 255, 0.12);
+}
+
+html[data-theme='amber'] {
+  --primary-color: #f5b301;
+  --primary-dark: #a86f00;
+  --primary-hover: #ffc533;
+  --primary-rgb: 245, 179, 1;
+}
+
+html[data-theme='emerald'] {
+  --primary-color: #20c997;
+  --primary-dark: #117a5d;
+  --primary-hover: #34dba8;
+  --primary-rgb: 32, 201, 151;
+}
+
+html[data-theme='sapphire'] {
+  --primary-color: #3b82f6;
+  --primary-dark: #1d4ed8;
+  --primary-hover: #60a5fa;
+  --primary-rgb: 59, 130, 246;
+}
+
+html[data-theme='violet'] {
+  --primary-color: #8b5cf6;
+  --primary-dark: #5b21b6;
+  --primary-hover: #a78bfa;
+  --primary-rgb: 139, 92, 246;
+}
+
+html[data-theme='rose'] {
+  --primary-color: #f43f5e;
+  --primary-dark: #9f1239;
+  --primary-hover: #fb7185;
+  --primary-rgb: 244, 63, 94;
 }
 
 html,
@@ -28,7 +65,7 @@ body,
 
 body {
   background:
-    linear-gradient(180deg, rgba(229, 9, 20, 0.1) 0%, rgba(15, 15, 15, 0) 300px),
+    linear-gradient(180deg, rgba(var(--primary-rgb), 0.1) 0%, rgba(15, 15, 15, 0) 300px),
     linear-gradient(135deg, #0f0f0f 0%, #1a1a1a 42%, #0a0a0a 100%),
     var(--bg-primary);
   color: var(--text-primary);
@@ -75,7 +112,7 @@ h6 {
   width: 42px;
   height: 42px;
   border-radius: 7px;
-  background: #e50914;
+  background: var(--primary-color);
   color: #fff;
   font-size: 15px;
   font-weight: 900;
@@ -116,10 +153,106 @@ input[type='text'] {
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+.form-control:-webkit-autofill,
+input[type='email']:-webkit-autofill,
+input[type='password']:-webkit-autofill,
+input[type='search']:-webkit-autofill,
+input[type='text']:-webkit-autofill {
+  border-color: rgba(var(--primary-rgb), 0.58) !important;
+  -webkit-box-shadow: 0 0 0 1000px #0a0a0a inset !important;
+  box-shadow: 0 0 0 1000px #0a0a0a inset !important;
+  -webkit-text-fill-color: #fff !important;
+  caret-color: #fff;
+  transition: background-color 9999s ease-in-out 0s;
+}
+
+.form-control:-webkit-autofill:focus,
+input[type='email']:-webkit-autofill:focus,
+input[type='password']:-webkit-autofill:focus,
+input[type='search']:-webkit-autofill:focus,
+input[type='text']:-webkit-autofill:focus {
+  border-color: rgba(var(--primary-rgb), 0.9) !important;
+  -webkit-box-shadow:
+    0 0 0 1000px #0a0a0a inset,
+    0 0 0 3px rgba(var(--primary-rgb), 0.22) !important;
+  box-shadow:
+    0 0 0 1000px #0a0a0a inset,
+    0 0 0 3px rgba(var(--primary-rgb), 0.22) !important;
+}
+
 .form-control:focus,
 input:focus {
-  border-color: rgba(229, 9, 20, 0.82) !important;
-  box-shadow: 0 0 0 3px rgba(229, 9, 20, 0.22) !important;
+  border-color: rgba(var(--primary-rgb), 0.82) !important;
+  box-shadow: 0 0 0 3px rgba(var(--primary-rgb), 0.22) !important;
+}
+
+.password-field {
+  position: relative;
+  display: block;
+  width: 100%;
+}
+
+.password-field input {
+  padding-right: 52px !important;
+}
+
+.password-toggle {
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  transform: translateY(-50%);
+  border: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  cursor: pointer;
+}
+
+.password-toggle:hover {
+  transform: translateY(-50%);
+  background: rgba(var(--primary-rgb), 0.18);
+}
+
+.password-toggle:focus-visible {
+  outline: 2px solid rgba(var(--primary-rgb), 0.8);
+  outline-offset: 2px;
+}
+
+.password-toggle-icon {
+  position: relative;
+  display: block;
+  width: 18px;
+  height: 12px;
+  border: 2px solid rgba(255, 255, 255, 0.82);
+  border-radius: 999px / 720px;
+}
+
+.password-toggle-icon::before {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 5px;
+  height: 5px;
+  content: "";
+  border-radius: 50%;
+  background: #fff;
+  transform: translate(-50%, -50%);
+}
+
+.password-toggle.visible .password-toggle-icon::after {
+  position: absolute;
+  top: -6px;
+  left: 7px;
+  width: 2px;
+  height: 22px;
+  content: "";
+  border-radius: 999px;
+  background: #fff;
+  transform: rotate(45deg);
 }
 
 ::placeholder {

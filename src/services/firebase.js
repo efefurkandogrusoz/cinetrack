@@ -25,6 +25,8 @@ import {
   setPersistence,
   browserLocalPersistence,
   browserSessionPersistence,
+  EmailAuthProvider,
+  reauthenticateWithCredential,
 } from "firebase/auth";
 
 const firebaseConfig = {
@@ -215,34 +217,72 @@ export const getUserProfile = async (uid) => {
   }
 };
 
-export const updateAccountSettings = async ({ displayName, email, password, profileNote }) => {
+export const updateAccountSettings = async ({ displayName, email, password, profileNote, currentPassword }) => {
   const user = auth.currentUser;
   if (!user) throw new Error('User must be signed in to update account settings');
+
+  // E-posta veya şifre değiştirilecekse, yeniden doğrulama gerekiyor
+  if ((email && email.trim().toLowerCase() !== user.email) || password?.trim()) {
+    if (!currentPassword?.trim()) {
+      throw new Error('require-reauthentication');
+    }
+    
+    // Kullanıcıyı yeniden doğrula
+    const credential = EmailAuthProvider.credential(user.email, currentPassword);
+    try {
+      await reauthenticateWithCredential(user, credential);
+    } catch (error) {
+      console.error('Reauthentication failed:', error);
+      throw new Error('Mevcut şifre hatalı.');
+    }
+  }
 
   const cleanDisplayName = displayName?.trim() || user.displayName || user.email?.split('@')[0] || 'Kullanıcı';
   const cleanEmail = email?.trim().toLowerCase() || user.email;
   const cleanProfileNote = profileNote?.trim() || '';
-  const updates = [];
 
+  // displayName güncellemesi (non-sensitive)
   if (cleanDisplayName && cleanDisplayName !== user.displayName) {
-    updates.push(updateProfile(user, { displayName: cleanDisplayName }));
+    try {
+      await updateProfile(user, { displayName: cleanDisplayName });
+    } catch (error) {
+      console.error('Error updating display name:', error);
+      throw error;
+    }
   }
 
+  // E-posta güncellemesi (sensitive - sırayla yapılmalı)
   if (cleanEmail && cleanEmail !== user.email) {
-    updates.push(updateEmail(user, cleanEmail));
+    try {
+      await updateEmail(user, cleanEmail);
+    } catch (error) {
+      console.error('Error updating email:', error);
+      throw error;
+    }
   }
 
+  // Şifre güncellemesi (sensitive - sırayla yapılmalı)
   if (password?.trim()) {
-    updates.push(updatePassword(user, password.trim()));
+    try {
+      await updatePassword(user, password.trim());
+    } catch (error) {
+      console.error('Error updating password:', error);
+      throw error;
+    }
   }
 
-  await Promise.all(updates);
-  await saveUserProfile(user, {
-    displayName: cleanDisplayName,
-    email: cleanEmail,
-    profileNote: cleanProfileNote,
-    updatedAt: serverTimestamp(),
-  });
+  // Firestore'a profil kaydet
+  try {
+    await saveUserProfile(user, {
+      displayName: cleanDisplayName,
+      email: cleanEmail,
+      profileNote: cleanProfileNote,
+      updatedAt: serverTimestamp(),
+    });
+  } catch (error) {
+    console.error('Error saving user profile:', error);
+    throw error;
+  }
 
   return {
     uid: user.uid,

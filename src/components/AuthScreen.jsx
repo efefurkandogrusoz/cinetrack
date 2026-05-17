@@ -2,7 +2,6 @@ import React, { useMemo, useState } from 'react';
 import { loginUser, registerUser } from '../services/firebase';
 import { getFirebaseMessage } from '../utils/firebaseErrors';
 import {
-  forgetAccount,
   getRememberedAccounts,
   rememberAccount,
 } from '../utils/rememberedAccounts';
@@ -13,14 +12,13 @@ const AuthScreen = () => {
   const [displayName, setDisplayName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [passwordVisible, setPasswordVisible] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
   const [accounts, setAccounts] = useState(() => getRememberedAccounts());
-  const [showAuthForm, setShowAuthForm] = useState(false);
 
   const isRegister = mode === 'register';
-  const showProfilePicker = accounts.length > 0 && !showAuthForm;
   const selectedAccount = useMemo(() => {
     const normalized = email.trim().toLowerCase();
     return accounts.find(account =>
@@ -55,92 +53,6 @@ const AuthScreen = () => {
     }
   };
 
-  const chooseAccount = (account) => {
-    setMode('login');
-    setEmail(account.email);
-    setDisplayName(account.displayName);
-    setPassword('');
-    setRememberMe(true);
-    setMessage('');
-    setShowAuthForm(true);
-  };
-
-  const addProfile = () => {
-    setMode('login');
-    setDisplayName('');
-    setEmail('');
-    setPassword('');
-    setRememberMe(true);
-    setMessage('');
-    setShowAuthForm(true);
-  };
-
-  const backToProfiles = () => {
-    setMode('login');
-    setDisplayName('');
-    setEmail('');
-    setPassword('');
-    setMessage('');
-    setShowAuthForm(false);
-  };
-
-  const removeAccount = (event, accountEmail) => {
-    event.stopPropagation();
-    forgetAccount(accountEmail);
-    const nextAccounts = getRememberedAccounts();
-    setAccounts(nextAccounts);
-
-    if (nextAccounts.length === 0) setShowAuthForm(true);
-    if (email.toLowerCase() === accountEmail.toLowerCase()) {
-      setEmail('');
-      setPassword('');
-    }
-  };
-
-  if (showProfilePicker) {
-    return (
-      <main className="profile-select-screen">
-        <section className="profile-select-panel" aria-label="Hesap seçimi">
-          <p className="eyebrow">CineTrack</p>
-          <h1>Kim izliyor?</h1>
-
-          <div className="profile-grid">
-            {accounts.map((account, index) => (
-              <button
-                className="profile-card"
-                key={account.email}
-                type="button"
-                onClick={() => chooseAccount(account)}
-              >
-                <span className={`profile-avatar tone-${index % 4}`}>
-                  {account.displayName.slice(0, 1).toUpperCase()}
-                </span>
-                <strong>{account.displayName}</strong>
-                <small>{account.email}</small>
-                <span
-                  className="profile-delete"
-                  role="button"
-                  tabIndex={0}
-                  onClick={event => removeAccount(event, account.email)}
-                  onKeyDown={event => {
-                    if (event.key === 'Enter') removeAccount(event, account.email);
-                  }}
-                >
-                  Sil
-                </span>
-              </button>
-            ))}
-
-            <button className="profile-card add-profile" type="button" onClick={addProfile}>
-              <span className="profile-add-icon" aria-hidden="true" />
-              <strong>Profil Ekle</strong>
-            </button>
-          </div>
-        </section>
-      </main>
-    );
-  }
-
   return (
     <main className="auth-screen">
       <section className="auth-hero" aria-label="CineTrack giriş">
@@ -159,15 +71,8 @@ const AuthScreen = () => {
 
       <section className="auth-card" aria-label="Kullanıcı girişi">
         <div className="auth-card-head">
-          <div>
-            <p className="eyebrow">Hesap</p>
-            <h2>{isRegister ? 'Kayıt Ol' : selectedAccount ? `${selectedAccount.displayName} ile gir` : 'Giriş Yap'}</h2>
-          </div>
-          {accounts.length > 0 && (
-            <button className="profile-back" type="button" onClick={backToProfiles}>
-              Profil Seç
-            </button>
-          )}
+          <p className="eyebrow">Hesap</p>
+          <h2>{isRegister ? 'Kayıt Ol' : selectedAccount ? `${selectedAccount.displayName} ile gir` : 'Giriş Yap'}</h2>
         </div>
 
         <div className="auth-mode-switch" role="tablist" aria-label="Giriş veya kayıt">
@@ -208,22 +113,33 @@ const AuthScreen = () => {
               value={email}
               onChange={event => setEmail(event.target.value)}
               autoComplete={isRegister ? 'email' : 'username'}
-              placeholder={isRegister ? 'ornek@mail.com' : 'mail adresi veya hatırlanan kullanıcı adı'}
+              placeholder={isRegister ? 'ornek@mail.com' : 'mail adresi veya kullanıcı adı'}
               required
             />
           </label>
 
           <label>
             Şifre
-            <input
-              type="password"
-              value={password}
-              onChange={event => setPassword(event.target.value)}
-              autoComplete={isRegister ? 'new-password' : 'current-password'}
-              placeholder="En az 6 karakter"
-              minLength={6}
-              required
-            />
+            <span className="password-field">
+              <input
+                type={passwordVisible ? 'text' : 'password'}
+                value={password}
+                onChange={event => setPassword(event.target.value)}
+                autoComplete={isRegister ? 'new-password' : 'current-password'}
+                placeholder="En az 6 karakter"
+                minLength={6}
+                required
+              />
+              <button
+                className={passwordVisible ? 'password-toggle visible' : 'password-toggle'}
+                type="button"
+                aria-label={passwordVisible ? 'Şifreyi gizle' : 'Şifreyi göster'}
+                aria-pressed={passwordVisible}
+                onClick={() => setPasswordVisible(current => !current)}
+              >
+                <span className="password-toggle-icon" aria-hidden="true" />
+              </button>
+            </span>
           </label>
 
           {!isRegister && (

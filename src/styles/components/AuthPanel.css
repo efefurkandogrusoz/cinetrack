@@ -1,4 +1,4 @@
-.auth-panel,
+﻿.auth-panel,
 .auth-user {
   position: relative;
 }
@@ -7,7 +7,7 @@
 .auth-submit {
   border: 1px solid rgba(255, 255, 255, 0.16);
   border-radius: 6px;
-  background: #e50914;
+  background: var(--primary-color);
   color: #fff;
   padding: 9px 14px;
   font-size: 13px;
@@ -108,3 +108,4 @@
     gap: 8px;
   }
 }
+

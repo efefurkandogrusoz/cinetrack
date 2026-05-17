@@ -1,7 +1,6 @@
 import React from 'react';
 import MovieList from '../components/MovieList';
 import Navbar from '../components/Navbar';
-import UserInsights from '../components/UserInsights';
 import { useMovies } from '../context/MovieContext';
 import '../styles/pages/pages.css';
 
@@ -18,7 +17,6 @@ const Watched = () => {
             <h2>İzlenen Filmler</h2>
             <p>{watchedMovies.length} film izlediniz</p>
           </div>
-          <UserInsights />
           <MovieList movies={watchedMovies} />
         </div>
       </div>

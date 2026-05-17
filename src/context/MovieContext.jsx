@@ -5,6 +5,24 @@ import * as storageService from '../services/storage';
 
 export const MovieContext = createContext();
 
+export const themeOptions = [
+  { id: 'crimson', name: 'Klasik Kırmızı', color: '#e50914' },
+  { id: 'amber', name: 'Altın Sarısı', color: '#f5b301' },
+  { id: 'emerald', name: 'Zümrüt Yeşili', color: '#20c997' },
+  { id: 'sapphire', name: 'Sinematik Mavi', color: '#3b82f6' },
+  { id: 'violet', name: 'Gece Moru', color: '#8b5cf6' },
+  { id: 'rose', name: 'Neon Pembe', color: '#f43f5e' },
+];
+
+const defaultTheme = 'crimson';
+
+const getStoredTheme = () => {
+  if (typeof window === 'undefined') return defaultTheme;
+
+  const storedTheme = window.localStorage.getItem('cinetrack-theme');
+  return themeOptions.some(theme => theme.id === storedTheme) ? storedTheme : defaultTheme;
+};
+
 const initialState = {
   movies: [],
   filter: 'all', // 'all', 'watched', 'watchlist'
@@ -14,6 +32,7 @@ const initialState = {
   user: null,
   userProfile: null,
   authReady: false,
+  theme: getStoredTheme(),
 };
 
 const movieReducer = (state, action) => {
@@ -61,6 +80,9 @@ const movieReducer = (state, action) => {
 
     case 'SET_AUTH_READY':
       return { ...state, authReady: action.payload };
+
+    case 'SET_THEME':
+      return { ...state, theme: action.payload };
     
     case 'CLEAR_ERROR':
       return { ...state, error: null };
@@ -72,6 +94,11 @@ const movieReducer = (state, action) => {
 
 export const MovieProvider = ({ children }) => {
   const [state, dispatch] = useReducer(movieReducer, initialState);
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = state.theme;
+    window.localStorage.setItem('cinetrack-theme', state.theme);
+  }, [state.theme]);
 
   const loadMovies = useCallback(async (useFirebase = Boolean(firebaseService.auth.currentUser)) => {
     dispatch({ type: 'SET_LOADING', payload: true });
@@ -268,6 +295,11 @@ export const MovieProvider = ({ children }) => {
     dispatch({ type: 'CLEAR_ERROR' });
   }, []);
 
+  const setTheme = useCallback((themeId) => {
+    const nextTheme = themeOptions.some(theme => theme.id === themeId) ? themeId : defaultTheme;
+    dispatch({ type: 'SET_THEME', payload: nextTheme });
+  }, []);
+
   const updateAccountSettings = useCallback(async (updates) => {
     const nextProfile = await firebaseService.updateAccountSettings(updates);
     dispatch({ type: 'SET_USER', payload: firebaseService.auth.currentUser });
@@ -300,6 +332,8 @@ export const MovieProvider = ({ children }) => {
     setFilter,
     setSearchResults,
     clearError,
+    setTheme,
+    themeOptions,
     updateAccountSettings,
   };
 

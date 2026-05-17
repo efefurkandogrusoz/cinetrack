@@ -1,19 +1,15 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useMemo, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { logoutUser } from '../services/firebase';
 import { useMovies } from '../context/MovieContext';
-import { getFirebaseMessage } from '../utils/firebaseErrors';
-import { updateRememberedAccount } from '../utils/rememberedAccounts';
 import MovieSearch from './MovieSearch';
 import '../styles/components/Navbar.css';
 
 const Navbar = () => {
   const { filter, setFilter, movies, user, userProfile } = useMovies();
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [searchOpen, setSearchOpen] = useState(false);
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  const searchRef = useRef(null);
   const navigate = useNavigate();
+  const location = useLocation();
 
   const stats = useMemo(() => ({
     watched: movies.filter(movie => movie.watched).length,
@@ -24,7 +20,6 @@ const Navbar = () => {
 
   const handleFilterChange = (newFilter) => {
     setFilter(newFilter);
-    setSettingsOpen(false);
     setDrawerOpen(false);
 
     switch (newFilter) {
@@ -39,29 +34,39 @@ const Navbar = () => {
     }
   };
 
-  useEffect(() => {
-    if (!searchOpen) return undefined;
-
-    const closeOnOutsideClick = (event) => {
-      const target = event.target;
-      const clickedInsideModal = target.closest?.('.movie-modal-layer');
-
-      if (!searchRef.current?.contains(target) && !clickedInsideModal) {
-        setSearchOpen(false);
-      }
-    };
-
-    document.addEventListener('pointerdown', closeOnOutsideClick);
-    return () => document.removeEventListener('pointerdown', closeOnOutsideClick);
-  }, [searchOpen]);
-
-  const openSearch = () => {
-    setSearchOpen(true);
+  const closeDrawer = () => {
+    setDrawerOpen(false);
   };
 
-  const closeDrawer = () => {
-    setSettingsOpen(false);
-    setDrawerOpen(false);
+  const goToAccountSettings = () => {
+    closeDrawer();
+    navigate('/account-settings');
+  };
+
+  const goToSettings = () => {
+    closeDrawer();
+    navigate('/settings');
+  };
+
+  const scrollToMyList = () => {
+    window.requestAnimationFrame(() => {
+      document.getElementById('my-list')?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start',
+      });
+    });
+  };
+
+  const goToMyList = () => {
+    setFilter('all');
+    closeDrawer();
+
+    if (location.pathname === '/') {
+      scrollToMyList();
+      return;
+    }
+
+    navigate('/', { state: { scrollToMyList: true } });
   };
 
   const signOut = async () => {
@@ -70,19 +75,19 @@ const Navbar = () => {
   };
 
   const toggleDrawer = () => {
-    if (drawerOpen) {
-      closeDrawer();
-      return;
-    }
-
-    setDrawerOpen(true);
+    setDrawerOpen(current => !current);
   };
 
   const accountLabel = userProfile?.displayName || user?.displayName || user?.email || 'Kullanıcı';
+  const accountInitial = accountLabel.trim().slice(0, 1).toUpperCase() || 'K';
+  const accountPhoto = userProfile?.photoURL || userProfile?.avatarUrl || user?.photoURL || null;
+  const isAccountSettings = location.pathname === '/account-settings';
+  const isSettings = location.pathname === '/settings';
+  const hideQuickNav = isAccountSettings || isSettings;
 
   return (
     <>
-      <nav className={searchOpen ? 'navbar-container searching' : 'navbar-container'}>
+      <nav className={hideQuickNav ? 'navbar-container navbar-compact' : 'navbar-container'}>
         <button className="navbar-brand" type="button" onClick={() => handleFilterChange('all')}>
           <span className="brand-mark">CT</span>
           <span className="brand-text">
@@ -91,33 +96,27 @@ const Navbar = () => {
           </span>
         </button>
 
-        <div className="navbar-actions">
-          <div
-            ref={searchRef}
-            className={searchOpen ? 'nav-search-shell open' : 'nav-search-shell'}
-          >
-            <button
-              className={searchOpen ? 'nav-icon-btn search active' : 'nav-icon-btn search'}
-              type="button"
-              aria-label={searchOpen ? 'Aramayı kapat' : 'Arama aç'}
-              onClick={openSearch}
-            >
-              <span className="search-symbol" />
-            </button>
-            <div className="nav-search-expand" aria-hidden={!searchOpen}>
-              {searchOpen && <MovieSearch autoFocus compact onAdd={() => setSearchOpen(false)} />}
-            </div>
+        {!hideQuickNav && (
+          <div className="navbar-search-center">
+            <MovieSearch compact />
           </div>
+        )}
 
+        <div className="navbar-actions">
+          {!hideQuickNav && (
+            <button className="nav-list-btn" type="button" onClick={goToMyList}>
+              Listem
+            </button>
+          )}
           <button
-            className={drawerOpen ? 'nav-icon-btn menu active' : 'nav-icon-btn menu'}
+            className={drawerOpen ? 'nav-icon-btn profile-menu active' : 'nav-icon-btn profile-menu'}
             type="button"
-            aria-label="Menü aç"
+            aria-label="Profil menüsünü aç"
             onClick={toggleDrawer}
           >
-            <span />
-            <span />
-            <span />
+            <span className={accountPhoto ? 'profile-menu-avatar has-image' : 'profile-menu-avatar'}>
+              {accountPhoto ? <img src={accountPhoto} alt="" /> : accountInitial}
+            </span>
           </button>
         </div>
       </nav>
@@ -125,7 +124,9 @@ const Navbar = () => {
       <aside className={drawerOpen ? 'side-drawer open' : 'side-drawer'} aria-hidden={!drawerOpen}>
         <div className="drawer-head">
           <div className="drawer-user">
-            <span className="account-avatar">{accountLabel.slice(0, 1).toUpperCase()}</span>
+            <span className={accountPhoto ? 'account-avatar has-image' : 'account-avatar'}>
+              {accountPhoto ? <img src={accountPhoto} alt="" /> : accountInitial}
+            </span>
             <div>
               <strong>{accountLabel}</strong>
               <small>{user?.email}</small>
@@ -145,27 +146,27 @@ const Navbar = () => {
         </div>
 
         <div className="drawer-links">
-          <button className={filter === 'all' && !settingsOpen ? 'active' : ''} type="button" onClick={() => handleFilterChange('all')}>
+          {!hideQuickNav && (
+            <button type="button" onClick={goToMyList}>
+              Listem
+            </button>
+          )}
+          <button className={filter === 'all' && !isAccountSettings && !isSettings ? 'active' : ''} type="button" onClick={() => handleFilterChange('all')}>
             Tümü
           </button>
-          <button className={filter === 'watched' && !settingsOpen ? 'active' : ''} type="button" onClick={() => handleFilterChange('watched')}>
+          <button className={filter === 'watched' && !isAccountSettings && !isSettings ? 'active' : ''} type="button" onClick={() => handleFilterChange('watched')}>
             İzlenen Filmler
           </button>
-          <button className={filter === 'watchlist' && !settingsOpen ? 'active' : ''} type="button" onClick={() => handleFilterChange('watchlist')}>
+          <button className={filter === 'watchlist' && !isAccountSettings && !isSettings ? 'active' : ''} type="button" onClick={() => handleFilterChange('watchlist')}>
             İzlenecek Filmler
           </button>
-          <button className={settingsOpen ? 'active' : ''} type="button" onClick={() => setSettingsOpen(current => !current)}>
+          <button className={isAccountSettings ? 'active' : ''} type="button" onClick={goToAccountSettings}>
             Hesap Ayarları
           </button>
+          <button className={isSettings ? 'active' : ''} type="button" onClick={goToSettings}>
+            Ayarlar
+          </button>
         </div>
-
-        {settingsOpen && (
-          <AccountSettingsPanel
-            key={`${user?.uid}-${userProfile?.email || user?.email}-${userProfile?.displayName || user?.displayName}-${userProfile?.profileNote || ''}`}
-            user={user}
-            userProfile={userProfile}
-          />
-        )}
 
         <button className="drawer-logout" type="button" onClick={signOut}>
           Çıkış Yap
@@ -174,125 +175,6 @@ const Navbar = () => {
 
       {drawerOpen && <button className="drawer-backdrop" type="button" aria-label="Menüyü kapat" onClick={closeDrawer} />}
     </>
-  );
-};
-
-const AccountSettingsPanel = ({ user, userProfile }) => {
-  const { updateAccountSettings } = useMovies();
-  const [form, setForm] = useState({
-    displayName: userProfile?.displayName || user?.displayName || '',
-    email: userProfile?.email || user?.email || '',
-    profileNote: userProfile?.profileNote || '',
-    password: '',
-    passwordConfirm: '',
-  });
-  const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState('');
-  const [messageType, setMessageType] = useState('success');
-
-  const updateField = (field, value) => {
-    setForm(current => ({ ...current, [field]: value }));
-  };
-
-  const submit = async (event) => {
-    event.preventDefault();
-    setMessage('');
-
-    if (form.password && form.password !== form.passwordConfirm) {
-      setMessageType('error');
-      setMessage('Şifreler eşleşmiyor.');
-      return;
-    }
-
-    setSaving(true);
-    try {
-      const previousEmail = user?.email;
-      const nextProfile = await updateAccountSettings({
-        displayName: form.displayName,
-        email: form.email,
-        profileNote: form.profileNote,
-        password: form.password,
-      });
-
-      updateRememberedAccount(previousEmail, nextProfile);
-      setForm(current => ({ ...current, password: '', passwordConfirm: '' }));
-      setMessageType('success');
-      setMessage('Hesap bilgileri güncellendi.');
-    } catch (error) {
-      setMessageType('error');
-      setMessage(getFirebaseMessage(error));
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <form className="account-settings-panel" onSubmit={submit}>
-      <div>
-        <p className="eyebrow">Hesap Ayarları</p>
-        <h3>Profilini düzenle</h3>
-      </div>
-
-      <label>
-        Kullanıcı adı
-        <input
-          type="text"
-          value={form.displayName}
-          onChange={event => updateField('displayName', event.target.value)}
-          placeholder="Kullanıcı adın"
-        />
-      </label>
-
-      <label>
-        E-posta
-        <input
-          type="email"
-          value={form.email}
-          onChange={event => updateField('email', event.target.value)}
-          placeholder="ornek@mail.com"
-        />
-      </label>
-
-      <label>
-        Profil notu
-        <input
-          type="text"
-          value={form.profileNote}
-          onChange={event => updateField('profileNote', event.target.value)}
-          maxLength={70}
-          placeholder="Favori türün, ruh halin veya kısa not"
-        />
-      </label>
-
-      <div className="settings-password-grid">
-        <label>
-          Yeni şifre
-          <input
-            type="password"
-            value={form.password}
-            onChange={event => updateField('password', event.target.value)}
-            minLength={6}
-            placeholder="Boş bırakırsan değişmez"
-          />
-        </label>
-        <label>
-          Şifre tekrar
-          <input
-            type="password"
-            value={form.passwordConfirm}
-            onChange={event => updateField('passwordConfirm', event.target.value)}
-            minLength={6}
-            placeholder="Yeni şifreyi tekrar yaz"
-          />
-        </label>
-      </div>
-
-      {message && <p className={`settings-message ${messageType}`}>{message}</p>}
-
-      <button className="settings-save" type="submit" disabled={saving}>
-        {saving ? 'Kaydediliyor...' : 'Değişiklikleri Kaydet'}
-      </button>
-    </form>
   );
 };
 

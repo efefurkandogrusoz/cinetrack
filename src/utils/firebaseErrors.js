@@ -1,5 +1,5 @@
 export const getFirebaseMessage = (error) => {
-  const code = error?.code || '';
+  const code = error?.code || error?.message || '';
 
   if (code.includes('invalid-email')) return 'E-posta formati hatali.';
   if (code.includes('missing-password')) return 'Şifre alanı boş bırakılamaz.';
@@ -25,6 +25,7 @@ export const getFirebaseMessage = (error) => {
   if (code.includes('permission-denied')) {
     return 'Firebase Firestore users koleksiyonuna yazma izni vermiyor. Rules ayarlarını kontrol et.';
   }
+  if (code.includes('Mevcut şifre hatalı')) return 'Mevcut şifren hatalı. Doğru şifreni gir.';
 
   return `İşlem tamamlanamadı. Firebase hata kodu: ${code || 'bilinmiyor'}`;
 };

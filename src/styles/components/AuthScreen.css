@@ -88,6 +88,12 @@
   align-content: end;
 }
 
+.auth-logo {
+  width: min(280px, 76vw);
+  height: auto;
+  filter: drop-shadow(0 20px 44px rgba(0, 0, 0, 0.38));
+}
+
 .auth-copy h1 {
   max-width: 430px;
   color: #fff;

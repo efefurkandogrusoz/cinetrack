@@ -1,23 +1,23 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { getPopularMovies, getTopRatedMovies } from '../services/tmdb';
+import { getDailyTrendingMovies, getWeeklyTrendingMovies } from '../services/tmdb';
 import { useMovies } from '../context/MovieContext';
 import MovieDetailsModal from './MovieDetailsModal';
 import '../styles/components/DiscoveryRows.css';
 
 const DiscoveryRows = () => {
   const { addMovie, movies } = useMovies();
-  const [popularMovies, setPopularMovies] = useState([]);
-  const [topRatedMovies, setTopRatedMovies] = useState([]);
+  const [dailyMovies, setDailyMovies] = useState([]);
+  const [weeklyMovies, setWeeklyMovies] = useState([]);
   const [selectedMovie, setSelectedMovie] = useState(null);
   const existingIds = new Set(movies.map(movie => movie.id));
 
   useEffect(() => {
     let cancelled = false;
 
-    Promise.all([getPopularMovies(), getTopRatedMovies()]).then(([popular, topRated]) => {
+    Promise.all([getDailyTrendingMovies(), getWeeklyTrendingMovies()]).then(([daily, weekly]) => {
       if (!cancelled) {
-        setPopularMovies(popular);
-        setTopRatedMovies(topRated);
+        setDailyMovies(daily);
+        setWeeklyMovies(weekly);
       }
     });
 
@@ -30,16 +30,16 @@ const DiscoveryRows = () => {
     <section className="discovery-section">
       <DiscoveryRow
         title="Haftanın Filmleri"
-        subtitle="Yüksek puanlı, izleme listene yakışacak güçlü seçkiler"
-        movies={topRatedMovies}
+        subtitle="Bu hafta TMDB'de en çok ilgi gören filmler"
+        movies={weeklyMovies}
         existingIds={existingIds}
         onAdd={addMovie}
         onSelect={setSelectedMovie}
       />
       <DiscoveryRow
         title="Günün Filmleri"
-        subtitle="Bugün öne çıkan popüler filmler ve hızlı ekleme kartları"
-        movies={popularMovies}
+        subtitle="Bugün TMDB'de trend olan filmler ve hızlı ekleme kartları"
+        movies={dailyMovies}
         existingIds={existingIds}
         onAdd={addMovie}
         onSelect={setSelectedMovie}

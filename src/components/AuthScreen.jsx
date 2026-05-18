@@ -8,6 +8,7 @@ import {
 import '../styles/components/AuthScreen.css';
 
 const AuthScreen = () => {
+  const logoUrl = `${import.meta.env.BASE_URL}cinetrack-logo.png`;
   const [mode, setMode] = useState('login');
   const [displayName, setDisplayName] = useState('');
   const [email, setEmail] = useState('');
@@ -63,7 +64,7 @@ const AuthScreen = () => {
           <span />
         </div>
         <div className="auth-copy">
-          <p className="eyebrow">CineTrack</p>
+          <img className="auth-logo" src={logoUrl} alt="CineTrack" />
           <h1>Sinematik izleme merkezine hoş geldin.</h1>
           <p>Haftanın seçkilerini keşfet, izleme listeni kur ve izlediklerini tek premium panelde yönet.</p>
         </div>

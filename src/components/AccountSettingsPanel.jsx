@@ -19,6 +19,7 @@ const AccountSettingsPanel = () => {
   const [messageType, setMessageType] = useState('success');
   const [passwordVisible, setPasswordVisible] = useState(false);
   const [passwordConfirmVisible, setPasswordConfirmVisible] = useState(false);
+  const [currentPasswordVisible, setCurrentPasswordVisible] = useState(false);
 
   const updateField = (field, value) => {
     setForm(current => ({ ...current, [field]: value }));
@@ -156,17 +157,17 @@ const AccountSettingsPanel = () => {
         <small style={{ display: 'block', marginTop: '4px', color: '#999' }}>E-posta veya şifre değişikliği için mevcut şifreni girmek zorundasın</small>
         <span className="password-field">
           <input
-            type={passwordVisible ? 'text' : 'password'}
+            type={currentPasswordVisible ? 'text' : 'password'}
             value={form.currentPassword}
             onChange={event => updateField('currentPassword', event.target.value)}
             placeholder="Güvenlik doğrulaması için mevcut şifreni yaz"
           />
           <button
-            className={passwordVisible ? 'password-toggle visible' : 'password-toggle'}
             type="button"
-            aria-label={passwordVisible ? 'Şifreyi gizle' : 'Şifreyi göster'}
-            aria-pressed={passwordVisible}
-            onClick={() => setPasswordVisible(current => !current)}
+            className={currentPasswordVisible ? 'password-toggle visible' : 'password-toggle'}
+            aria-label={currentPasswordVisible ? 'Şifreyi gizle' : 'Şifreyi göster'}
+            aria-pressed={currentPasswordVisible}
+            onClick={() => setCurrentPasswordVisible(current => !current)}
           >
             <span className="password-toggle-icon" aria-hidden="true" />
           </button>

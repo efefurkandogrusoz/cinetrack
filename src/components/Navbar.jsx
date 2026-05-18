@@ -48,6 +48,18 @@ const Navbar = () => {
     navigate('/settings');
   };
 
+  const goToMovies = () => {
+    setFilter('all');
+    closeDrawer();
+    navigate('/movies');
+  };
+
+  const goToStatistics = () => {
+    setFilter('all');
+    closeDrawer();
+    navigate('/statistics');
+  };
+
   const scrollToMyList = () => {
     window.requestAnimationFrame(() => {
       document.getElementById('my-list')?.scrollIntoView({
@@ -69,6 +81,18 @@ const Navbar = () => {
     navigate('/', { state: { scrollToMyList: true } });
   };
 
+  const goToHomeTop = () => {
+    setFilter('all');
+    closeDrawer();
+
+    if (location.pathname === '/') {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+
+    navigate('/', { state: { scrollToTop: true } });
+  };
+
   const signOut = async () => {
     await logoutUser();
     closeDrawer();
@@ -83,31 +107,46 @@ const Navbar = () => {
   const accountPhoto = userProfile?.photoURL || userProfile?.avatarUrl || user?.photoURL || null;
   const isAccountSettings = location.pathname === '/account-settings';
   const isSettings = location.pathname === '/settings';
-  const hideQuickNav = isAccountSettings || isSettings;
+  const isWatched = location.pathname === '/watched';
+  const isWatchlist = location.pathname === '/watchlist';
+  const isMovies = location.pathname === '/movies';
+  const isStatistics = location.pathname === '/statistics' || location.pathname === '/istatistikler';
+  const hideQuickNav = isAccountSettings || isSettings || isWatched || isWatchlist || isStatistics;
+  const hideNavbarSearch = hideQuickNav || isMovies;
+  const logoMarkUrl = `${import.meta.env.BASE_URL}cinetrack-logo-mark.png`;
 
   return (
     <>
-      <nav className={hideQuickNav ? 'navbar-container navbar-compact' : 'navbar-container'}>
-        <button className="navbar-brand" type="button" onClick={() => handleFilterChange('all')}>
-          <span className="brand-mark">CT</span>
+      <nav className={hideNavbarSearch ? 'navbar-container navbar-compact' : 'navbar-container'}>
+        <button className="navbar-brand" type="button" onClick={goToHomeTop}>
+          <img className="brand-logo-mark" src={logoMarkUrl} alt="" aria-hidden="true" />
           <span className="brand-text">
             <span className="brand-title">CineTrack</span>
             <span className="brand-subtitle">Premium film paneli</span>
           </span>
         </button>
 
-        {!hideQuickNav && (
+        {!hideNavbarSearch && (
           <div className="navbar-search-center">
             <MovieSearch compact />
           </div>
         )}
 
         <div className="navbar-actions">
-          {!hideQuickNav && (
-            <button className="nav-list-btn" type="button" onClick={goToMyList}>
-              Listem
-            </button>
-          )}
+          <button
+            className={isMovies ? 'nav-page-btn active' : 'nav-page-btn'}
+            type="button"
+            onClick={goToMovies}
+          >
+            Filmler
+          </button>
+          <button
+            className={isStatistics ? 'nav-page-btn active' : 'nav-page-btn'}
+            type="button"
+            onClick={goToStatistics}
+          >
+            İstatistikler
+          </button>
           <button
             className={drawerOpen ? 'nav-icon-btn profile-menu active' : 'nav-icon-btn profile-menu'}
             type="button"
@@ -146,18 +185,24 @@ const Navbar = () => {
         </div>
 
         <div className="drawer-links">
+          <button className={isMovies ? 'active' : ''} type="button" onClick={goToMovies}>
+            Filmler
+          </button>
+          <button className={isStatistics ? 'active' : ''} type="button" onClick={goToStatistics}>
+            İstatistikler
+          </button>
           {!hideQuickNav && (
             <button type="button" onClick={goToMyList}>
               Listem
             </button>
           )}
-          <button className={filter === 'all' && !isAccountSettings && !isSettings ? 'active' : ''} type="button" onClick={() => handleFilterChange('all')}>
+          <button className={filter === 'all' && !isAccountSettings && !isSettings && !isMovies && !isStatistics ? 'active' : ''} type="button" onClick={() => handleFilterChange('all')}>
             Tümü
           </button>
-          <button className={filter === 'watched' && !isAccountSettings && !isSettings ? 'active' : ''} type="button" onClick={() => handleFilterChange('watched')}>
+          <button className={filter === 'watched' && !isAccountSettings && !isSettings && !isStatistics ? 'active' : ''} type="button" onClick={() => handleFilterChange('watched')}>
             İzlenen Filmler
           </button>
-          <button className={filter === 'watchlist' && !isAccountSettings && !isSettings ? 'active' : ''} type="button" onClick={() => handleFilterChange('watchlist')}>
+          <button className={filter === 'watchlist' && !isAccountSettings && !isSettings && !isStatistics ? 'active' : ''} type="button" onClick={() => handleFilterChange('watchlist')}>
             İzlenecek Filmler
           </button>
           <button className={isAccountSettings ? 'active' : ''} type="button" onClick={goToAccountSettings}>

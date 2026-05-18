@@ -94,13 +94,20 @@ export const addMovie = async (movie) => {
     const user = auth.currentUser;
     if (!user) throw new Error('User must be signed in to add movies');
 
-    const docRef = await addDoc(collection(db, MOVIES_COLLECTION), {
+    const now = new Date();
+    const createdAt = movie.createdAt || movie.created_at || now;
+    const updatedAt = movie.updatedAt || movie.updated_at || now;
+    const movieRecord = {
       ...movie,
       userId: user.uid,
-      created_at: new Date(),
-      updated_at: new Date(),
-    });
-    return { ...movie, userId: user.uid, docId: docRef.id };
+      createdAt,
+      created_at: createdAt,
+      updatedAt,
+      updated_at: updatedAt,
+    };
+
+    const docRef = await addDoc(collection(db, MOVIES_COLLECTION), movieRecord);
+    return { ...movieRecord, docId: docRef.id };
   } catch (error) {
     console.error('Error adding movie:', error);
     throw error;
@@ -145,9 +152,11 @@ export const deleteMovie = async (docId) => {
 // Update movie watch status
 export const updateMovieStatus = async (docId, updates) => {
   try {
+    const now = new Date();
     await updateDoc(doc(db, MOVIES_COLLECTION, docId), {
       ...updates,
-      updated_at: new Date(),
+      updatedAt: updates.updatedAt || now,
+      updated_at: updates.updated_at || now,
     });
   } catch (error) {
     console.error('Error updating movie:', error);
@@ -233,7 +242,7 @@ export const updateAccountSettings = async ({ displayName, email, password, prof
       await reauthenticateWithCredential(user, credential);
     } catch (error) {
       console.error('Reauthentication failed:', error);
-      throw new Error('Mevcut şifre hatalı.');
+      throw new Error('Mevcut şifre hatalı.', { cause: error });
     }
   }
 

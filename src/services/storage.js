@@ -5,6 +5,45 @@ const STORAGE_KEY = 'cinetrack_movies';
 
 const getStorageKey = (userId = 'guest') => `${STORAGE_KEY}_${userId}`;
 
+const getDateTime = (value) => {
+  if (!value) return 0;
+
+  if (typeof value?.toDate === 'function') {
+    const time = value.toDate().getTime();
+    return Number.isNaN(time) ? 0 : time;
+  }
+
+  if (value instanceof Date) {
+    const time = value.getTime();
+    return Number.isNaN(time) ? 0 : time;
+  }
+
+  if (typeof value === 'number') return value;
+
+  if (typeof value === 'string') {
+    const time = Date.parse(value);
+    return Number.isNaN(time) ? 0 : time;
+  }
+
+  if (typeof value === 'object') {
+    const seconds = value.seconds ?? value._seconds;
+    const nanoseconds = value.nanoseconds ?? value._nanoseconds ?? 0;
+
+    if (typeof seconds === 'number') {
+      return (seconds * 1000) + Math.floor(nanoseconds / 1000000);
+    }
+  }
+
+  return 0;
+};
+
+const getUpdatedTime = (movie) => Math.max(
+  getDateTime(movie.updatedAt),
+  getDateTime(movie.updated_at),
+  getDateTime(movie.createdAt),
+  getDateTime(movie.created_at),
+);
+
 // Save movies to localStorage
 export const saveMoviesToLocal = (movies, userId) => {
   try {
@@ -46,7 +85,7 @@ export const syncWithFirebase = async (firebaseMovies, userId) => {
       const existingIndex = merged.findIndex(m => m.id === localMovie.id);
       if (existingIndex === -1) {
         merged.push(localMovie);
-      } else if (localMovie.updated_at > merged[existingIndex].updated_at) {
+      } else if (getUpdatedTime(localMovie) > getUpdatedTime(merged[existingIndex])) {
         merged[existingIndex] = localMovie;
       }
     }

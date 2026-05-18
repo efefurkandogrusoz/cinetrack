@@ -142,6 +142,52 @@ export const discoverMoviesByGenres = async (genreIds = [], excludedMovieIds = [
   }
 };
 
+export const getMovieCatalog = async ({
+  query = '',
+  genreId = 'all',
+  sortBy = 'popularity.desc',
+  page = 1,
+} = {}) => {
+  try {
+    const apiKey = getApiKey();
+    if (!apiKey) return { results: [], page: 1, totalPages: 1 };
+
+    const cleanedQuery = query.trim();
+    const params = new URLSearchParams({
+      api_key: apiKey,
+      include_adult: 'false',
+      page: String(page),
+    });
+
+    const endpoint = cleanedQuery ? 'search/movie' : 'discover/movie';
+
+    if (cleanedQuery) {
+      params.set('query', cleanedQuery);
+    } else {
+      params.set('sort_by', sortBy);
+      params.set('vote_count.gte', sortBy === 'vote_average.desc' ? '250' : '0');
+
+      if (genreId !== 'all') {
+        params.set('with_genres', String(genreId));
+      }
+    }
+
+    const response = await fetch(`${API_BASE_URL}/${endpoint}?${params.toString()}`);
+    if (!response.ok) throw new Error('Failed to fetch movie catalog');
+
+    const data = await response.json();
+
+    return {
+      results: formatMovies(data.results || []),
+      page: data.page || page,
+      totalPages: Math.min(data.total_pages || 1, 500),
+    };
+  } catch (error) {
+    console.error('Error fetching movie catalog:', error);
+    return { results: [], page: 1, totalPages: 1 };
+  }
+};
+
 export const getPopularMovies = async () => {
   try {
     const apiKey = getApiKey();
@@ -179,6 +225,29 @@ export const getTopRatedMovies = async () => {
     return [];
   }
 };
+
+const getTrendingMovies = async (timeWindow) => {
+  try {
+    const apiKey = getApiKey();
+    if (!apiKey) return [];
+
+    const response = await fetch(
+      `${API_BASE_URL}/trending/movie/${timeWindow}?api_key=${apiKey}`
+    );
+
+    if (!response.ok) throw new Error(`Failed to fetch ${timeWindow} trending movies`);
+
+    const data = await response.json();
+    return formatMovies(data.results || []).slice(0, 10);
+  } catch (error) {
+    console.error(`Error fetching ${timeWindow} trending movies:`, error);
+    return [];
+  }
+};
+
+export const getDailyTrendingMovies = () => getTrendingMovies('day');
+
+export const getWeeklyTrendingMovies = () => getTrendingMovies('week');
 
 export const getMovieTrailer = async (movieId) => {
   try {
@@ -231,8 +300,11 @@ export default {
   getMovieDetails,
   getMovieFullDetails,
   discoverMoviesByGenres,
+  getMovieCatalog,
   getPopularMovies,
   getTopRatedMovies,
+  getDailyTrendingMovies,
+  getWeeklyTrendingMovies,
   getMovieTrailer,
   GENRE_MAP,
 };

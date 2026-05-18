@@ -1,5 +1,5 @@
 /* eslint-disable react-refresh/only-export-components */
-import React, { createContext, useReducer, useCallback, useEffect } from 'react';
+import React, { createContext, useReducer, useCallback, useEffect, useMemo } from 'react';
 import * as firebaseService from '../services/firebase';
 import * as storageService from '../services/storage';
 
@@ -34,6 +34,64 @@ const initialState = {
   authReady: false,
   theme: getStoredTheme(),
 };
+
+const RECENT_MOVIES_LIMIT = 5;
+
+const getDateTime = (value) => {
+  if (!value) return 0;
+
+  if (value instanceof Date) {
+    const time = value.getTime();
+    return Number.isNaN(time) ? 0 : time;
+  }
+
+  if (typeof value?.toDate === 'function') {
+    const time = value.toDate().getTime();
+    return Number.isNaN(time) ? 0 : time;
+  }
+
+  if (typeof value === 'number') {
+    return value;
+  }
+
+  if (typeof value === 'string') {
+    const time = Date.parse(value);
+    return Number.isNaN(time) ? 0 : time;
+  }
+
+  if (typeof value === 'object') {
+    const seconds = value.seconds ?? value._seconds;
+    const nanoseconds = value.nanoseconds ?? value._nanoseconds ?? 0;
+
+    if (typeof seconds === 'number') {
+      return (seconds * 1000) + Math.floor(nanoseconds / 1000000);
+    }
+  }
+
+  return 0;
+};
+
+const getSortDateTime = (movie, fields) => {
+  for (const field of fields) {
+    const time = getDateTime(movie[field]);
+    if (time > 0) return time;
+  }
+
+  return 0;
+};
+
+const getRecentMovies = (movies, predicate, dateFields) => (
+  movies
+    .map((movie, index) => ({
+      movie,
+      index,
+      time: getSortDateTime(movie, dateFields),
+    }))
+    .filter(({ movie }) => predicate(movie))
+    .sort((a, b) => (b.time - a.time) || (b.index - a.index))
+    .slice(0, RECENT_MOVIES_LIMIT)
+    .map(({ movie }) => movie)
+);
 
 const movieReducer = (state, action) => {
   switch (action.type) {
@@ -180,6 +238,18 @@ export const MovieProvider = ({ children }) => {
 
     dispatch({ type: 'SET_LOADING', payload: true });
     try {
+      const now = new Date();
+      const isWatched = Boolean(movieData.watched);
+      const isFavorite = Boolean(movieData.favorite);
+      const createdAt = movieData.createdAt || movieData.created_at || now;
+      const updatedAt = movieData.updatedAt || movieData.updated_at || now;
+      const watchedAt = isWatched
+        ? movieData.watchedAt || movieData.watched_at || now
+        : null;
+      const favoriteAt = isFavorite
+        ? movieData.favoriteAt || movieData.favorite_at || now
+        : null;
+
       const newMovie = {
         id: movieData.id,
         title: movieData.title,
@@ -192,11 +262,19 @@ export const MovieProvider = ({ children }) => {
         backdrop_path: movieData.backdrop_path || null,
         trailerKey: movieData.trailerKey || null,
         runtime: movieData.runtime || null,
-        watched: movieData.watched || false,
-        favorite: movieData.favorite || false,
+        watched: isWatched,
+        favorite: isFavorite,
         reaction: movieData.reaction || null,
         rating: movieData.rating || 0,
         overview: movieData.overview || '',
+        watchedAt,
+        watched_at: watchedAt,
+        favoriteAt,
+        favorite_at: favoriteAt,
+        createdAt,
+        created_at: createdAt,
+        updatedAt,
+        updated_at: updatedAt,
       };
 
       // Try to add to Firebase first
@@ -234,11 +312,20 @@ export const MovieProvider = ({ children }) => {
   const toggleWatched = useCallback(async (docId, currentStatus) => {
     dispatch({ type: 'SET_LOADING', payload: true });
     try {
+      const now = new Date();
       const newStatus = !currentStatus;
+      const updates = {
+        watched: newStatus,
+        watchedAt: newStatus ? now : null,
+        watched_at: newStatus ? now : null,
+        updatedAt: now,
+        updated_at: now,
+      };
+
       if (state.user) {
-        await firebaseService.updateMovieStatus(docId, { watched: newStatus });
+        await firebaseService.updateMovieStatus(docId, updates);
       }
-      dispatch({ type: 'UPDATE_MOVIE', payload: { docId, watched: newStatus } });
+      dispatch({ type: 'UPDATE_MOVIE', payload: { docId, ...updates } });
     } catch (error) {
       console.error('Error updating movie:', error);
       dispatch({ type: 'SET_ERROR', payload: 'Failed to update movie' });
@@ -250,11 +337,20 @@ export const MovieProvider = ({ children }) => {
   const toggleFavorite = useCallback(async (docId, currentStatus) => {
     dispatch({ type: 'SET_LOADING', payload: true });
     try {
+      const now = new Date();
       const newStatus = !currentStatus;
+      const updates = {
+        favorite: newStatus,
+        favoriteAt: newStatus ? now : null,
+        favorite_at: newStatus ? now : null,
+        updatedAt: now,
+        updated_at: now,
+      };
+
       if (state.user) {
-        await firebaseService.updateMovieStatus(docId, { favorite: newStatus });
+        await firebaseService.updateMovieStatus(docId, updates);
       }
-      dispatch({ type: 'UPDATE_MOVIE', payload: { docId, favorite: newStatus } });
+      dispatch({ type: 'UPDATE_MOVIE', payload: { docId, ...updates } });
     } catch (error) {
       console.error('Error updating movie:', error);
       dispatch({ type: 'SET_ERROR', payload: 'Failed to update movie' });
@@ -266,9 +362,20 @@ export const MovieProvider = ({ children }) => {
   const setReaction = useCallback(async (docId, reaction) => {
     dispatch({ type: 'SET_LOADING', payload: true });
     try {
+      const now = new Date();
       const movie = state.movies.find(m => (m.docId || m.id) === docId);
       const nextReaction = movie?.reaction === reaction ? null : reaction;
-      const updates = { reaction: nextReaction, watched: true };
+      const updates = {
+        reaction: nextReaction,
+        watched: true,
+        updatedAt: now,
+        updated_at: now,
+      };
+
+      if (!movie?.watched || getDateTime(movie?.watchedAt || movie?.watched_at) === 0) {
+        updates.watchedAt = now;
+        updates.watched_at = now;
+      }
 
       if (state.user) {
         await firebaseService.updateMovieStatus(docId, updates);
@@ -320,9 +427,29 @@ export const MovieProvider = ({ children }) => {
     }
   };
 
+  const recentWatchedMovies = useMemo(
+    () => getRecentMovies(
+      state.movies,
+      movie => movie.watched,
+      ['watchedAt', 'watched_at', 'updatedAt', 'updated_at', 'createdAt', 'created_at'],
+    ),
+    [state.movies],
+  );
+
+  const recentFavoriteMovies = useMemo(
+    () => getRecentMovies(
+      state.movies,
+      movie => movie.favorite,
+      ['favoriteAt', 'favorite_at', 'updatedAt', 'updated_at', 'createdAt', 'created_at'],
+    ),
+    [state.movies],
+  );
+
   const value = {
     ...state,
     filteredMovies: getFilteredMovies(),
+    recentWatchedMovies,
+    recentFavoriteMovies,
     loadMovies,
     addMovie,
     deleteMovie,

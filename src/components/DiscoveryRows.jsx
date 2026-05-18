@@ -1,6 +1,12 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { getDailyTrendingMovies, getWeeklyTrendingMovies } from '../services/tmdb';
+import {
+  getDailyTrendingMovies,
+  getDailyTrendingTvShows,
+  getWeeklyTrendingMovies,
+  getWeeklyTrendingTvShows,
+} from '../services/tmdb';
 import { useMovies } from '../context/MovieContext';
+import { getMediaKey, getMediaTypeLabel } from '../utils/media';
 import MovieDetailsModal from './MovieDetailsModal';
 import '../styles/components/DiscoveryRows.css';
 
@@ -8,16 +14,25 @@ const DiscoveryRows = () => {
   const { addMovie, movies } = useMovies();
   const [dailyMovies, setDailyMovies] = useState([]);
   const [weeklyMovies, setWeeklyMovies] = useState([]);
+  const [dailyShows, setDailyShows] = useState([]);
+  const [weeklyShows, setWeeklyShows] = useState([]);
   const [selectedMovie, setSelectedMovie] = useState(null);
-  const existingIds = new Set(movies.map(movie => movie.id));
+  const existingIds = new Set(movies.map(getMediaKey));
 
   useEffect(() => {
     let cancelled = false;
 
-    Promise.all([getDailyTrendingMovies(), getWeeklyTrendingMovies()]).then(([daily, weekly]) => {
+    Promise.all([
+      getDailyTrendingMovies(),
+      getWeeklyTrendingMovies(),
+      getDailyTrendingTvShows(),
+      getWeeklyTrendingTvShows(),
+    ]).then(([daily, weekly, dailyTv, weeklyTv]) => {
       if (!cancelled) {
         setDailyMovies(daily);
         setWeeklyMovies(weekly);
+        setDailyShows(dailyTv);
+        setWeeklyShows(weeklyTv);
       }
     });
 
@@ -37,9 +52,25 @@ const DiscoveryRows = () => {
         onSelect={setSelectedMovie}
       />
       <DiscoveryRow
+        title="Haftanın Popüler Dizileri"
+        subtitle="Bu hafta TMDB'de öne çıkan diziler"
+        movies={weeklyShows}
+        existingIds={existingIds}
+        onAdd={addMovie}
+        onSelect={setSelectedMovie}
+      />
+      <DiscoveryRow
         title="Günün Filmleri"
         subtitle="Bugün TMDB'de trend olan filmler ve hızlı ekleme kartları"
         movies={dailyMovies}
+        existingIds={existingIds}
+        onAdd={addMovie}
+        onSelect={setSelectedMovie}
+      />
+      <DiscoveryRow
+        title="Trend Diziler"
+        subtitle="Bugün trend olan diziler ve hızlı ekleme kartları"
+        movies={dailyShows}
         existingIds={existingIds}
         onAdd={addMovie}
         onSelect={setSelectedMovie}
@@ -86,7 +117,7 @@ const DiscoveryRow = ({ title, subtitle, movies, existingIds, onAdd, onSelect })
         {movies.map(movie => (
           <article
             className="discovery-card"
-            key={movie.id}
+            key={getMediaKey(movie)}
             onClick={() => onSelect(movie)}
             role="button"
             tabIndex={0}
@@ -95,18 +126,19 @@ const DiscoveryRow = ({ title, subtitle, movies, existingIds, onAdd, onSelect })
             }}
           >
             <img src={movie.poster} alt={movie.title} />
+            <span className="discovery-media-badge">{getMediaTypeLabel(movie)}</span>
             <div className="discovery-card-info">
               <h4>{movie.title}</h4>
               <p>{movie.year} {movie.genres?.[0] ? `- ${movie.genres[0]}` : ''}</p>
               <button
                 type="button"
-                disabled={existingIds.has(movie.id)}
+                disabled={existingIds.has(getMediaKey(movie))}
                 onClick={event => {
                   event.stopPropagation();
                   onAdd(movie);
                 }}
               >
-                {existingIds.has(movie.id) ? 'Listede' : 'Listeye Ekle'}
+                {existingIds.has(getMediaKey(movie)) ? 'Listede' : 'Listeye Ekle'}
               </button>
             </div>
           </article>

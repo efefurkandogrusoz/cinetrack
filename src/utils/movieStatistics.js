@@ -1,4 +1,5 @@
-import { GENRE_MAP } from '../services/tmdb';
+import { ALL_GENRE_MAP } from '../services/tmdb';
+import { getWatchStatus } from './media';
 
 const getMovieRating = (movie) => {
   const value = Number(movie.rating ?? movie.vote_average ?? movie.voteAverage);
@@ -10,7 +11,7 @@ const getMovieGenres = (movie) => {
   if (namedGenres.length > 0) return namedGenres;
 
   return (movie.genre_ids || [])
-    .map(id => GENRE_MAP[id])
+    .map(id => ALL_GENRE_MAP[id])
     .filter(Boolean);
 };
 
@@ -28,9 +29,9 @@ const toSortedDistribution = (counts) => (
 
 export const calculateMovieStatistics = (movies = []) => {
   const totalCount = movies.length;
-  const watchedMovies = movies.filter(movie => movie.watched);
-  const watchlistMovies = movies.filter(movie => !movie.watched);
-  const favoriteMovies = movies.filter(movie => movie.favorite);
+  const watchedMovies = movies.filter(movie => movie.watched || getWatchStatus(movie) === 'completed' || getWatchStatus(movie) === 'watched');
+  const watchlistMovies = movies.filter(movie => getWatchStatus(movie) === 'watchlist');
+  const favoriteMovies = movies.filter(movie => movie.favorite || movie.isFavorite);
   const ratingValues = movies.map(getMovieRating).filter(Boolean);
   const genreCounts = new Map();
   const watchedGenreCounts = new Map();

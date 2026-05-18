@@ -324,7 +324,7 @@
 
 .movies-toolbar {
   display: grid;
-  grid-template-columns: minmax(280px, 1.3fr) minmax(220px, 0.7fr) minmax(190px, 0.55fr) auto;
+  grid-template-columns: minmax(280px, 1.3fr) minmax(170px, 0.55fr) minmax(220px, 0.7fr) minmax(190px, 0.55fr) auto;
   align-items: end;
   gap: 12px;
   min-width: 0;
@@ -478,9 +478,9 @@
   text-align: center;
 }
 
-.api-movie-poster strong {
+.api-movie-poster strong,
+.api-movie-poster em {
   position: absolute;
-  left: 7px;
   top: 7px;
   display: inline-flex;
   align-items: center;
@@ -493,6 +493,17 @@
   font-size: 12px;
   font-weight: 950;
   backdrop-filter: blur(10px);
+}
+
+.api-movie-poster strong {
+  left: 7px;
+}
+
+.api-movie-poster em {
+  right: 7px;
+  font-style: normal;
+  border-color: rgba(var(--primary-rgb), 0.28);
+  background: rgba(var(--primary-rgb), 0.16);
 }
 
 .api-movie-copy {

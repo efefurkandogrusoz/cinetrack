@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useMovies } from '../context/MovieContext';
+import { getMediaKey, getMediaTypeLabel } from '../utils/media';
 import MovieDetailsModal from './MovieDetailsModal';
 import '../styles/components/RecentMovieRows.css';
 
@@ -12,12 +13,12 @@ const RecentMovieRows = () => {
     <section className="recent-section" aria-label="Son film hareketleri">
       <RecentMovieRow
         title="Son İzlediklerin"
-        description="En son izlediğin filmler burada görünür."
+        description="En son izlediğin film ve diziler burada görünür."
         movies={isInitialLoading ? [] : recentWatchedMovies}
         emptyMessage={
           isInitialLoading
-            ? 'İzlenen filmler yükleniyor...'
-            : 'Henüz izlediğin film yok. Film keşfetmeye başlayarak izlediklerini burada görebilirsin.'
+            ? 'İzlenen kayıtlar yükleniyor...'
+            : 'Henüz izlediğin film veya dizi yok. Keşfetmeye başlayarak izlediklerini burada görebilirsin.'
         }
         onSelect={setSelectedMovie}
       />
@@ -25,7 +26,7 @@ const RecentMovieRows = () => {
       {recentFavoriteMovies.length > 0 && (
         <RecentMovieRow
           title="Son Favorilerin"
-          description="En son favorilerine eklediğin filmler burada görünür."
+          description="En son favorilerine eklediğin film ve diziler burada görünür."
           movies={recentFavoriteMovies}
           onSelect={setSelectedMovie}
         />
@@ -43,13 +44,13 @@ const RecentMovieRow = ({ title, description, movies, emptyMessage = '', onSelec
         <h3>{title}</h3>
         <p>{description}</p>
       </div>
-      {movies.length > 0 && <span>{movies.length} film</span>}
+      {movies.length > 0 && <span>{movies.length} kayıt</span>}
     </div>
 
     {movies.length > 0 ? (
       <div className="recent-movie-grid">
         {movies.map(movie => (
-          <RecentMovieCard key={movie.docId || movie.id} movie={movie} onSelect={onSelect} />
+          <RecentMovieCard key={movie.docId || getMediaKey(movie)} movie={movie} onSelect={onSelect} />
         ))}
       </div>
     ) : (
@@ -80,6 +81,7 @@ const RecentMovieCard = ({ movie, onSelect }) => {
           <span className="recent-poster-placeholder">Poster Yok</span>
         )}
         <span className="recent-rating">TMDB {ratingLabel}</span>
+        <span className="recent-media-type">{getMediaTypeLabel(movie)}</span>
       </span>
 
       <span className="recent-movie-copy">

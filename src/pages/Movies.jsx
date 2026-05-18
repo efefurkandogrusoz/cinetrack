@@ -2,7 +2,8 @@ import React, { useEffect, useMemo, useState } from 'react';
 import MovieDetailsModal from '../components/MovieDetailsModal';
 import Navbar from '../components/Navbar';
 import { useMovies } from '../context/MovieContext';
-import { GENRE_MAP, getMovieCatalog } from '../services/tmdb';
+import { ALL_GENRE_MAP, getMovieCatalog } from '../services/tmdb';
+import { getMediaKey, getMediaTypeLabel } from '../utils/media';
 import '../styles/pages/pages.css';
 
 const sortOptions = [
@@ -11,20 +12,27 @@ const sortOptions = [
   { id: 'vote_average.desc', label: 'Yüksek Puan' },
 ];
 
+const mediaOptions = [
+  { id: 'all', label: 'Tümü' },
+  { id: 'movie', label: 'Filmler' },
+  { id: 'tv', label: 'Diziler' },
+];
+
 const genreOptions = [
   { id: 'all', label: 'Tüm kategoriler' },
-  ...Object.entries(GENRE_MAP)
+  ...Object.entries(ALL_GENRE_MAP)
     .map(([id, label]) => ({ id, label }))
     .sort((a, b) => a.label.localeCompare(b.label, 'tr')),
 ];
 
 const mergeMovies = (currentMovies, nextMovies) => {
-  const seen = new Set(currentMovies.map(movie => movie.id));
+  const seen = new Set(currentMovies.map(getMediaKey));
   return [
     ...currentMovies,
     ...nextMovies.filter(movie => {
-      if (seen.has(movie.id)) return false;
-      seen.add(movie.id);
+      const key = getMediaKey(movie);
+      if (seen.has(key)) return false;
+      seen.add(key);
       return true;
     }),
   ];
@@ -34,10 +42,12 @@ const Movies = () => {
   const { addMovie, movies } = useMovies();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedGenre, setSelectedGenre] = useState('all');
+  const [selectedMediaType, setSelectedMediaType] = useState('all');
   const [selectedSort, setSelectedSort] = useState('popularity.desc');
   const [catalogRequest, setCatalogRequest] = useState({
     query: '',
     genreId: 'all',
+    mediaType: 'all',
     sortBy: 'popularity.desc',
     page: 1,
   });
@@ -47,8 +57,8 @@ const Movies = () => {
   const [error, setError] = useState(null);
   const [totalPages, setTotalPages] = useState(1);
 
-  const existingIds = useMemo(() => new Set(movies.map(movie => movie.id)), [movies]);
-  const filtersActive = searchTerm.trim() !== '' || selectedGenre !== 'all' || selectedSort !== 'popularity.desc';
+  const existingIds = useMemo(() => new Set(movies.map(getMediaKey)), [movies]);
+  const filtersActive = searchTerm.trim() !== '' || selectedGenre !== 'all' || selectedMediaType !== 'all' || selectedSort !== 'popularity.desc';
   const hasMore = catalogRequest.page < totalPages;
 
   useEffect(() => {
@@ -56,13 +66,14 @@ const Movies = () => {
       setCatalogRequest({
         query: searchTerm.trim(),
         genreId: selectedGenre,
+        mediaType: selectedMediaType,
         sortBy: selectedSort,
         page: 1,
       });
     }, 350);
 
     return () => window.clearTimeout(timer);
-  }, [searchTerm, selectedGenre, selectedSort]);
+  }, [searchTerm, selectedGenre, selectedMediaType, selectedSort]);
 
   useEffect(() => {
     let cancelled = false;
@@ -97,6 +108,7 @@ const Movies = () => {
   const resetFilters = () => {
     setSearchTerm('');
     setSelectedGenre('all');
+    setSelectedMediaType('all');
     setSelectedSort('popularity.desc');
   };
 
@@ -127,20 +139,29 @@ const Movies = () => {
       <div className="page-content">
         <main className="container-fluid movies-page-shell">
           <section className="page-header movies-page-header">
-            <p className="eyebrow">Filmler</p>
-            <h2>API Film Kataloğu</h2>
-            <p>TMDB kataloğundaki filmleri ara, filtrele ve listene ekle.</p>
+            <p className="eyebrow">Film & Dizi</p>
+            <h2>API Film & Dizi Kataloğu</h2>
+            <p>TMDB kataloğundaki filmleri ve dizileri ara, filtrele ve listene ekle.</p>
           </section>
 
-          <section className="movies-toolbar" aria-label="Film arama ve filtreleme">
+          <section className="movies-toolbar" aria-label="Film ve dizi arama ve filtreleme">
             <label className="movies-search-field">
               <span>Arama</span>
               <input
                 type="search"
                 value={searchTerm}
                 onChange={event => setSearchTerm(event.target.value)}
-                placeholder="API'de film adı ara"
+                placeholder="API'de film veya dizi adı ara"
               />
+            </label>
+
+            <label className="filter-field movies-genre-field">
+              <span>Tür</span>
+              <select value={selectedMediaType} onChange={event => setSelectedMediaType(event.target.value)}>
+                {mediaOptions.map(option => (
+                  <option key={option.id} value={option.id}>{option.label}</option>
+                ))}
+              </select>
             </label>
 
             <label className="filter-field movies-genre-field">
@@ -185,11 +206,11 @@ const Movies = () => {
               <div className="spinner-border text-primary" role="status">
                 <span className="visually-hidden">Yükleniyor...</span>
               </div>
-              <p className="mt-3">API filmleri yükleniyor...</p>
+              <p className="mt-3">API kayıtları yükleniyor...</p>
             </div>
           ) : catalogMovies.length === 0 ? (
             <div className="filter-empty-state">
-              <h4>Film bulunamadı</h4>
+              <h4>Kayıt bulunamadı</h4>
               <p>Arama metnini veya filtreleri değiştirerek tekrar deneyin.</p>
               <button type="button" onClick={resetFilters}>Filtreleri sıfırla</button>
             </div>
@@ -199,7 +220,7 @@ const Movies = () => {
                 {catalogMovies.map(movie => (
                   <article
                     className="api-movie-card"
-                    key={movie.id}
+                    key={getMediaKey(movie)}
                     onClick={() => setSelectedMovie(movie)}
                     onKeyDown={event => handleCardKeyDown(event, movie)}
                     role="button"
@@ -213,6 +234,7 @@ const Movies = () => {
                         <span>Poster Yok</span>
                       )}
                       {movie.rating > 0 && <strong>{movie.rating.toFixed(1)}</strong>}
+                      <em>{getMediaTypeLabel(movie)}</em>
                     </div>
 
                     <div className="api-movie-copy">
@@ -227,14 +249,14 @@ const Movies = () => {
                         </div>
                       )}
 
-                      <p>{movie.overview || 'Bu film için açıklama bulunamadı.'}</p>
+                      <p>{movie.overview || `Bu ${getMediaTypeLabel(movie).toLowerCase()} için açıklama bulunamadı.`}</p>
 
                       <button
                         type="button"
-                        disabled={existingIds.has(movie.id)}
+                        disabled={existingIds.has(getMediaKey(movie))}
                         onClick={event => handleAddMovie(event, movie)}
                       >
-                        {existingIds.has(movie.id) ? 'Listede' : 'Listeye Ekle'}
+                        {existingIds.has(getMediaKey(movie)) ? 'Listede' : 'Listeye Ekle'}
                       </button>
                     </div>
                   </article>

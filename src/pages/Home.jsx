@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
+import ContinueWatching from '../components/ContinueWatching';
 import DiscoveryRows from '../components/DiscoveryRows';
 import MovieList from '../components/MovieList';
 import Navbar from '../components/Navbar';
@@ -68,6 +69,7 @@ const Home = () => {
             </div>
           </section>
           <DiscoveryRows />
+          <ContinueWatching />
           <RecentMovieRows />
           <UserInsights />
           <MovieList listId="my-list" />

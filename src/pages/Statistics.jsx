@@ -74,13 +74,13 @@ const Statistics = () => {
           ) : !hasMovies ? (
             <section className="statistics-empty-state">
               <div className="empty-icon">CT</div>
-              <h3>Henüz istatistik oluşturmak için yeterli film yok.</h3>
+              <h3>Henüz istatistik oluşturmak için yeterli kayıt yok.</h3>
               <p>Film ekledikçe istatistiklerin burada görünecek.</p>
             </section>
           ) : (
             <>
               <section className="statistics-grid" aria-label="Film istatistikleri">
-                <StatCard label="Toplam film" value={stats.totalCount} hint="Listendeki tüm filmler" />
+                <StatCard label="Toplam kayıt" value={stats.totalCount} hint="Listendeki tüm film ve diziler" />
                 <StatCard label="İzlenen" value={stats.watchedCount} hint="İzlendi olarak işaretlenenler" />
                 <StatCard label="İzlenecek" value={stats.watchlistCount} hint="Henüz izlenmeyi bekleyenler" />
                 <StatCard label="Favori" value={stats.favoriteCount} hint="Favorilerine eklediklerin" />
@@ -90,7 +90,7 @@ const Statistics = () => {
                   value={stats.ratingCount > 0 ? stats.averageTmdbRating.toFixed(1) : 'Henüz veri yok'}
                   hint={stats.ratingCount > 0 ? `${stats.ratingCount} puanlı film üzerinden` : 'Puan verisi bulunamadı'}
                 />
-                <StatCard label="En çok izlenen tür" value={stats.topWatchedGenre} hint="İzlenen filmler içinde" />
+                <StatCard label="En çok izlenen tür" value={stats.topWatchedGenre} hint="İzlenen kayıtlar içinde" />
                 <StatCard
                   label="En yüksek favori"
                   value={favoriteMovie ? favoriteMovie.title : 'Henüz yok'}
@@ -103,7 +103,7 @@ const Statistics = () => {
                   <div className="statistics-panel-head">
                     <div>
                       <h3>Tür Dağılımı</h3>
-                      <p>Listendeki filmlerin türlere göre dağılımı.</p>
+                      <p>Listendeki film ve dizilerin türlere göre dağılımı.</p>
                     </div>
                   </div>
 
@@ -195,7 +195,7 @@ const Statistics = () => {
                       </span>
                     </button>
                   ) : (
-                    <p className="statistics-muted">Henüz favori film yok. Favori ekledikçe burada en yüksek puanlı film görünecek.</p>
+                    <p className="statistics-muted">Henüz favori film veya dizi yok. Favori ekledikçe burada en yüksek puanlı kayıt görünecek.</p>
                   )}
                 </article>
 
@@ -203,7 +203,7 @@ const Statistics = () => {
                   <div className="statistics-panel-head">
                     <div>
                       <h3>Zevk Analizi Özeti</h3>
-                      <p>İzlenen ve favori filmlerine göre öne çıkan türler.</p>
+                      <p>İzlenen ve favori kayıtlarına göre öne çıkan türler.</p>
                     </div>
                   </div>
 
@@ -212,7 +212,7 @@ const Statistics = () => {
                       {stats.tasteGenres.map(genre => <span key={genre}>{genre}</span>)}
                     </div>
                   ) : (
-                    <p className="statistics-muted">Film zevkine göre tür özeti için izlenen veya favori filmler ekle.</p>
+                    <p className="statistics-muted">Film ve dizi zevkine göre tür özeti için izlenen veya favori kayıtlar ekle.</p>
                   )}
                 </article>
               </section>

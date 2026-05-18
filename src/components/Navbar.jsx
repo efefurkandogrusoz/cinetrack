@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { logoutUser } from '../services/firebase';
 import { useMovies } from '../context/MovieContext';
+import { getWatchStatus } from '../utils/media';
 import MovieSearch from './MovieSearch';
 import '../styles/components/Navbar.css';
 
@@ -12,9 +13,9 @@ const Navbar = () => {
   const location = useLocation();
 
   const stats = useMemo(() => ({
-    watched: movies.filter(movie => movie.watched).length,
-    watchlist: movies.filter(movie => !movie.watched).length,
-    favorites: movies.filter(movie => movie.favorite).length,
+    watched: movies.filter(movie => movie.watched || getWatchStatus(movie) === 'completed' || getWatchStatus(movie) === 'watched').length,
+    watchlist: movies.filter(movie => getWatchStatus(movie) === 'watchlist').length,
+    favorites: movies.filter(movie => movie.favorite || movie.isFavorite).length,
     total: movies.length,
   }), [movies]);
 
@@ -122,7 +123,7 @@ const Navbar = () => {
           <img className="brand-logo-mark" src={logoMarkUrl} alt="" aria-hidden="true" />
           <span className="brand-text">
             <span className="brand-title">CineTrack</span>
-            <span className="brand-subtitle">Premium film paneli</span>
+            <span className="brand-subtitle">Premium film & dizi paneli</span>
           </span>
         </button>
 
@@ -138,7 +139,7 @@ const Navbar = () => {
             type="button"
             onClick={goToMovies}
           >
-            Filmler
+            Film & Dizi
           </button>
           <button
             className={isStatistics ? 'nav-page-btn active' : 'nav-page-btn'}
@@ -186,7 +187,7 @@ const Navbar = () => {
 
         <div className="drawer-links">
           <button className={isMovies ? 'active' : ''} type="button" onClick={goToMovies}>
-            Filmler
+            Film & Dizi
           </button>
           <button className={isStatistics ? 'active' : ''} type="button" onClick={goToStatistics}>
             İstatistikler
@@ -200,10 +201,10 @@ const Navbar = () => {
             Tümü
           </button>
           <button className={filter === 'watched' && !isAccountSettings && !isSettings && !isStatistics ? 'active' : ''} type="button" onClick={() => handleFilterChange('watched')}>
-            İzlenen Filmler
+            İzlenenler
           </button>
           <button className={filter === 'watchlist' && !isAccountSettings && !isSettings && !isStatistics ? 'active' : ''} type="button" onClick={() => handleFilterChange('watchlist')}>
-            İzlenecek Filmler
+            İzlenecekler
           </button>
           <button className={isAccountSettings ? 'active' : ''} type="button" onClick={goToAccountSettings}>
             Hesap Ayarları

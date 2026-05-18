@@ -1,18 +1,23 @@
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useMovies } from '../context/MovieContext';
-import { getMovieTrailer } from '../services/tmdb';
+import { getMediaTrailer } from '../services/tmdb';
+import { getMediaTypeLabel, getWatchStatus, getWatchStatusLabel, isTvShow } from '../utils/media';
 import MovieDetailsModal from './MovieDetailsModal';
 import '../styles/components/MovieCard.css';
 
 const MovieCard = ({ movie }) => {
-  const { deleteMovie, setReaction, toggleFavorite, toggleWatched } = useMovies();
+  const { advanceEpisode, deleteMovie, setReaction, setWatchStatus, toggleFavorite, toggleWatched } = useMovies();
   const [trailerOpen, setTrailerOpen] = useState(false);
   const [trailerLoading, setTrailerLoading] = useState(false);
   const [trailerError, setTrailerError] = useState(null);
   const [trailerKey, setTrailerKey] = useState(movie.trailerKey || null);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const docId = movie.docId || movie.id;
+  const tvShow = isTvShow(movie);
+  const mediaLabel = getMediaTypeLabel(movie);
+  const watchStatus = getWatchStatus(movie);
+  const statusLabel = getWatchStatusLabel(movie);
 
   const stopAction = (event) => event.stopPropagation();
 
@@ -22,7 +27,7 @@ const MovieCard = ({ movie }) => {
   const overview =
     movie.overview && movie.overview.length > 132
       ? `${movie.overview.slice(0, 132).trim()}...`
-      : movie.overview || 'Bu film için açıklama bulunamadı.';
+      : movie.overview || `Bu ${mediaLabel.toLowerCase()} için açıklama bulunamadı.`;
 
   const openDetails = () => {
     setDetailsOpen(true);
@@ -51,7 +56,7 @@ const MovieCard = ({ movie }) => {
     if (!trailerKey) {
       setTrailerLoading(true);
       try {
-        const key = await getMovieTrailer(movie.id);
+        const key = await getMediaTrailer(movie.id, movie.mediaType);
         if (!key) {
           setTrailerError('Fragman bulunamadı.');
           return;
@@ -84,7 +89,7 @@ const MovieCard = ({ movie }) => {
 
   return (
     <>
-    <article className={`movie-card ${movie.watched ? 'is-watched has-reactions' : ''} ${movie.favorite ? 'is-favorite' : ''}`}>
+    <article className={`movie-card ${movie.watched ? 'is-watched has-reactions' : ''} ${movie.favorite ? 'is-favorite' : ''} ${tvShow ? 'is-tv-show' : 'is-movie'}`}>
       <div
         className="card-main"
         onClick={openDetails}
@@ -109,8 +114,9 @@ const MovieCard = ({ movie }) => {
                 {ratingLabel}
               </span>
             )}
-            <span className={`card-status ${movie.watched ? 'watched' : 'watchlist'}`}>
-              {movie.watched ? 'İzlendi' : 'İzlenecek'}
+            <span className="card-media-type">{mediaLabel}</span>
+            <span className={`card-status ${watchStatus}`}>
+              {statusLabel}
             </span>
           </div>
 
@@ -120,7 +126,7 @@ const MovieCard = ({ movie }) => {
             </span>
           )}
 
-          {movie.watched && (
+          {movie.watched && !tvShow && (
             <div className="poster-reactions" aria-label="Film beğenisi">
               <button
                 className={movie.reaction === 'liked' ? 'poster-reaction active liked' : 'poster-reaction'}
@@ -158,6 +164,14 @@ const MovieCard = ({ movie }) => {
             </div>
           )}
 
+          {tvShow && (
+            <div className="card-progress">
+              <span>S{movie.currentSeason || 1}</span>
+              <span>B{movie.currentEpisode || 0}</span>
+              {movie.totalEpisodes > 0 && <span>{movie.totalWatchedEpisodes || 0}/{movie.totalEpisodes} bölüm</span>}
+            </div>
+          )}
+
           <p className="card-description">{overview}</p>
         </div>
       </div>
@@ -185,16 +199,29 @@ const MovieCard = ({ movie }) => {
           <span>Favori</span>
         </button>
         <button
-          className={`action-btn watch-btn ${movie.watched ? 'active' : ''}`}
+          className={`action-btn watch-btn ${movie.watched || watchStatus === 'watching' ? 'active' : ''}`}
           onClick={event => {
             stopAction(event);
+            if (tvShow) {
+              setWatchStatus(docId, watchStatus === 'watching' ? 'watchlist' : 'watching');
+              return;
+            }
             toggleWatched(docId, movie.watched);
           }}
           type="button"
         >
           <span className="btn-icon" aria-hidden="true">✓</span>
-          <span>{movie.watched ? 'İzlendi' : 'İzle'}</span>
+          <span>{tvShow ? (watchStatus === 'watching' ? 'İzleniyor' : 'İzle') : (movie.watched ? 'İzlendi' : 'İzle')}</span>
         </button>
+        {tvShow && (
+          <button className="action-btn episode-btn" onClick={event => {
+            stopAction(event);
+            advanceEpisode(docId);
+          }} type="button">
+            <span className="btn-icon" aria-hidden="true">+</span>
+            <span>Sonraki</span>
+          </button>
+        )}
         <button className="action-btn delete-btn" onClick={event => {
           stopAction(event);
           handleDelete();

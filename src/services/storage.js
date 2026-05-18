@@ -1,6 +1,8 @@
 // Local Storage Service with Firestore fallback
 // Handles data persistence with automatic sync between localStorage and Firestore
 
+import { getMediaKey } from '../utils/media';
+
 const STORAGE_KEY = 'cinetrack_movies';
 
 const getStorageKey = (userId = 'guest') => `${STORAGE_KEY}_${userId}`;
@@ -82,7 +84,7 @@ export const syncWithFirebase = async (firebaseMovies, userId) => {
     const merged = [...firebaseMovies];
     
     for (const localMovie of localMovies) {
-      const existingIndex = merged.findIndex(m => m.id === localMovie.id);
+      const existingIndex = merged.findIndex(m => getMediaKey(m) === getMediaKey(localMovie));
       if (existingIndex === -1) {
         merged.push(localMovie);
       } else if (getUpdatedTime(localMovie) > getUpdatedTime(merged[existingIndex])) {

@@ -2,6 +2,7 @@
 import React, { createContext, useReducer, useCallback, useEffect, useMemo } from 'react';
 import * as firebaseService from '../services/firebase';
 import * as storageService from '../services/storage';
+import { getMediaKey, isTvShow, normalizeMediaItem } from '../utils/media';
 
 export const MovieContext = createContext();
 
@@ -93,16 +94,18 @@ const getRecentMovies = (movies, predicate, dateFields) => (
     .map(({ movie }) => movie)
 );
 
+const findMedia = (movies, media) => movies.some(movie => getMediaKey(movie) === getMediaKey(media));
+
 const movieReducer = (state, action) => {
   switch (action.type) {
     case 'SET_MOVIES':
-      return { ...state, movies: action.payload, error: null };
+      return { ...state, movies: action.payload.map(normalizeMediaItem), error: null };
     
     case 'ADD_MOVIE':
-      if (state.movies.some(movie => movie.id === action.payload.id)) {
+      if (findMedia(state.movies, action.payload)) {
         return state;
       }
-      return { ...state, movies: [...state.movies, action.payload] };
+      return { ...state, movies: [...state.movies, normalizeMediaItem(action.payload)] };
     
     case 'DELETE_MOVIE':
       return {
@@ -232,15 +235,21 @@ export const MovieProvider = ({ children }) => {
   }, [state.movies, state.user]);
 
   const addMovie = useCallback(async (movieData) => {
-    if (state.movies.some(movie => movie.id === movieData.id)) {
+    const normalizedInput = normalizeMediaItem(movieData);
+
+    if (findMedia(state.movies, normalizedInput)) {
       return;
     }
 
     dispatch({ type: 'SET_LOADING', payload: true });
     try {
       const now = new Date();
-      const isWatched = Boolean(movieData.watched);
-      const isFavorite = Boolean(movieData.favorite);
+      const mediaType = normalizedInput.mediaType;
+      const watchStatus = normalizedInput.watchStatus;
+      const isWatched = isTvShow(normalizedInput)
+        ? watchStatus === 'completed'
+        : Boolean(normalizedInput.watched) || watchStatus === 'watched';
+      const isFavorite = Boolean(normalizedInput.favorite);
       const createdAt = movieData.createdAt || movieData.created_at || now;
       const updatedAt = movieData.updatedAt || movieData.updated_at || now;
       const watchedAt = isWatched
@@ -251,22 +260,39 @@ export const MovieProvider = ({ children }) => {
         : null;
 
       const newMovie = {
-        id: movieData.id,
-        title: movieData.title,
-        poster: movieData.poster,
-        poster_path: movieData.poster_path,
-        year: movieData.year,
-        genre_ids: movieData.genre_ids || [],
-        genres: movieData.genres || [],
-        backdrop: movieData.backdrop || null,
-        backdrop_path: movieData.backdrop_path || null,
-        trailerKey: movieData.trailerKey || null,
-        runtime: movieData.runtime || null,
+        id: normalizedInput.id,
+        mediaType,
+        title: normalizedInput.title,
+        poster: normalizedInput.poster || null,
+        posterPath: normalizedInput.posterPath || null,
+        poster_path: normalizedInput.poster_path || normalizedInput.posterPath || null,
+        year: normalizedInput.year || 'N/A',
+        releaseDate: normalizedInput.releaseDate || '',
+        release_date: normalizedInput.release_date || normalizedInput.releaseDate,
+        firstAirDate: normalizedInput.firstAirDate || '',
+        first_air_date: normalizedInput.first_air_date || normalizedInput.firstAirDate || '',
+        genre_ids: normalizedInput.genre_ids || [],
+        genres: normalizedInput.genres || [],
+        backdrop: normalizedInput.backdrop || null,
+        backdropPath: normalizedInput.backdropPath || null,
+        backdrop_path: normalizedInput.backdrop_path || normalizedInput.backdropPath || null,
+        trailerKey: normalizedInput.trailerKey || null,
+        runtime: normalizedInput.runtime || null,
         watched: isWatched,
         favorite: isFavorite,
-        reaction: movieData.reaction || null,
-        rating: movieData.rating || 0,
-        overview: movieData.overview || '',
+        isFavorite,
+        watchStatus,
+        reaction: normalizedInput.reaction || null,
+        rating: normalizedInput.rating || normalizedInput.voteAverage || 0,
+        voteAverage: normalizedInput.voteAverage || normalizedInput.rating || 0,
+        overview: normalizedInput.overview || '',
+        currentSeason: normalizedInput.currentSeason,
+        currentEpisode: normalizedInput.currentEpisode,
+        totalWatchedEpisodes: normalizedInput.totalWatchedEpisodes,
+        totalSeasons: normalizedInput.totalSeasons,
+        totalEpisodes: normalizedInput.totalEpisodes,
+        seasonEpisodeCounts: normalizedInput.seasonEpisodeCounts,
+        status: normalizedInput.status || null,
         watchedAt,
         watched_at: watchedAt,
         favoriteAt,
@@ -313,9 +339,11 @@ export const MovieProvider = ({ children }) => {
     dispatch({ type: 'SET_LOADING', payload: true });
     try {
       const now = new Date();
+      const movie = state.movies.find(m => (m.docId || m.id) === docId);
       const newStatus = !currentStatus;
       const updates = {
         watched: newStatus,
+        watchStatus: isTvShow(movie) ? (newStatus ? 'completed' : 'watchlist') : (newStatus ? 'watched' : 'watchlist'),
         watchedAt: newStatus ? now : null,
         watched_at: newStatus ? now : null,
         updatedAt: now,
@@ -332,7 +360,7 @@ export const MovieProvider = ({ children }) => {
     } finally {
       dispatch({ type: 'SET_LOADING', payload: false });
     }
-  }, [state.user]);
+  }, [state.movies, state.user]);
 
   const toggleFavorite = useCallback(async (docId, currentStatus) => {
     dispatch({ type: 'SET_LOADING', payload: true });
@@ -341,6 +369,7 @@ export const MovieProvider = ({ children }) => {
       const newStatus = !currentStatus;
       const updates = {
         favorite: newStatus,
+        isFavorite: newStatus,
         favoriteAt: newStatus ? now : null,
         favorite_at: newStatus ? now : null,
         updatedAt: now,
@@ -390,6 +419,85 @@ export const MovieProvider = ({ children }) => {
     }
   }, [state.movies, state.user]);
 
+  const updateMediaProgress = useCallback(async (docId, progressUpdates) => {
+    dispatch({ type: 'SET_LOADING', payload: true });
+    try {
+      const now = new Date();
+      const movie = state.movies.find(m => (m.docId || m.id) === docId);
+      const nextStatus = progressUpdates.watchStatus || movie?.watchStatus || 'watchlist';
+      const completed = nextStatus === 'completed';
+      const updates = {
+        ...progressUpdates,
+        currentSeason: Number(progressUpdates.currentSeason ?? movie?.currentSeason) || 1,
+        currentEpisode: Number(progressUpdates.currentEpisode ?? movie?.currentEpisode) || 0,
+        totalWatchedEpisodes: Number(progressUpdates.totalWatchedEpisodes ?? movie?.totalWatchedEpisodes) || 0,
+        watchStatus: nextStatus,
+        watched: completed,
+        updatedAt: now,
+        updated_at: now,
+      };
+
+      if (completed && getDateTime(movie?.watchedAt || movie?.watched_at) === 0) {
+        updates.watchedAt = now;
+        updates.watched_at = now;
+      }
+
+      if (state.user) {
+        await firebaseService.updateMovieStatus(docId, updates);
+      }
+
+      dispatch({ type: 'UPDATE_MOVIE', payload: { docId, ...updates } });
+    } catch (error) {
+      console.error('Error updating media progress:', error);
+      dispatch({ type: 'SET_ERROR', payload: 'Failed to update media progress' });
+    } finally {
+      dispatch({ type: 'SET_LOADING', payload: false });
+    }
+  }, [state.movies, state.user]);
+
+  const setWatchStatus = useCallback(async (docId, watchStatus) => {
+    await updateMediaProgress(docId, { watchStatus });
+  }, [updateMediaProgress]);
+
+  const advanceEpisode = useCallback(async (docId) => {
+    const movie = state.movies.find(m => (m.docId || m.id) === docId);
+    if (!movie || !isTvShow(movie)) return;
+
+    const currentSeason = Number(movie.currentSeason) || 1;
+    const currentEpisode = Number(movie.currentEpisode) || 0;
+    const seasonEpisodeCount = Number(movie.seasonEpisodeCounts?.[currentSeason]) || 0;
+    const totalSeasons = Number(movie.totalSeasons) || currentSeason;
+    const totalEpisodes = Number(movie.totalEpisodes) || 0;
+    const totalWatchedEpisodes = Math.min(
+      totalEpisodes || Number.MAX_SAFE_INTEGER,
+      (Number(movie.totalWatchedEpisodes) || 0) + 1,
+    );
+    let nextSeason = currentSeason;
+    let nextEpisode = currentEpisode + 1;
+    let nextStatus = 'watching';
+
+    if (seasonEpisodeCount > 0 && nextEpisode > seasonEpisodeCount) {
+      if (currentSeason >= totalSeasons) {
+        nextEpisode = seasonEpisodeCount;
+        nextStatus = 'completed';
+      } else {
+        nextSeason = currentSeason + 1;
+        nextEpisode = 1;
+      }
+    }
+
+    if (totalEpisodes > 0 && totalWatchedEpisodes >= totalEpisodes) {
+      nextStatus = 'completed';
+    }
+
+    await updateMediaProgress(docId, {
+      currentSeason: nextSeason,
+      currentEpisode: nextEpisode,
+      totalWatchedEpisodes,
+      watchStatus: nextStatus,
+    });
+  }, [state.movies, updateMediaProgress]);
+
   const setFilter = useCallback((filter) => {
     dispatch({ type: 'SET_FILTER', payload: filter });
   }, []);
@@ -417,11 +525,17 @@ export const MovieProvider = ({ children }) => {
   const getFilteredMovies = () => {
     switch (state.filter) {
       case 'watched':
-        return state.movies.filter(m => m.watched);
+        return state.movies.filter(m => m.watched || m.watchStatus === 'completed' || m.watchStatus === 'watched');
       case 'watchlist':
-        return state.movies.filter(m => !m.watched);
+        return state.movies.filter(m => m.watchStatus === 'watchlist' || (!m.watched && !m.watchStatus));
       case 'favorites':
-        return state.movies.filter(m => m.favorite);
+        return state.movies.filter(m => m.favorite || m.isFavorite);
+      case 'watching':
+        return state.movies.filter(m => m.watchStatus === 'watching');
+      case 'completed':
+        return state.movies.filter(m => m.watchStatus === 'completed' || m.watched);
+      case 'dropped':
+        return state.movies.filter(m => m.watchStatus === 'dropped');
       default:
         return state.movies;
     }
@@ -430,7 +544,7 @@ export const MovieProvider = ({ children }) => {
   const recentWatchedMovies = useMemo(
     () => getRecentMovies(
       state.movies,
-      movie => movie.watched,
+      movie => movie.watched || movie.watchStatus === 'completed' || movie.watchStatus === 'watched',
       ['watchedAt', 'watched_at', 'updatedAt', 'updated_at', 'createdAt', 'created_at'],
     ),
     [state.movies],
@@ -439,7 +553,7 @@ export const MovieProvider = ({ children }) => {
   const recentFavoriteMovies = useMemo(
     () => getRecentMovies(
       state.movies,
-      movie => movie.favorite,
+      movie => movie.favorite || movie.isFavorite,
       ['favoriteAt', 'favorite_at', 'updatedAt', 'updated_at', 'createdAt', 'created_at'],
     ),
     [state.movies],
@@ -456,6 +570,9 @@ export const MovieProvider = ({ children }) => {
     toggleWatched,
     toggleFavorite,
     setReaction,
+    setWatchStatus,
+    updateMediaProgress,
+    advanceEpisode,
     setFilter,
     setSearchResults,
     clearError,

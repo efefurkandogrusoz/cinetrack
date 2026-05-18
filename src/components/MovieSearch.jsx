@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { searchMovies } from '../services/tmdb';
+import { searchMedia } from '../services/tmdb';
 import { useMovies } from '../context/MovieContext';
+import { getMediaKey, getMediaTypeLabel } from '../utils/media';
 import MovieDetailsModal from './MovieDetailsModal';
 import '../styles/components/MovieSearch.css';
 
@@ -8,6 +9,7 @@ const MovieSearch = ({ autoFocus = false, onAdd = null, compact = false }) => {
   const [query, setQuery] = useState('');
   const [searching, setSearching] = useState(false);
   const [selectedMovie, setSelectedMovie] = useState(null);
+  const [mediaFilter, setMediaFilter] = useState('all');
   const [resultsVisible, setResultsVisible] = useState(false);
   const inputRef = useRef(null);
   const containerRef = useRef(null);
@@ -34,7 +36,7 @@ const MovieSearch = ({ autoFocus = false, onAdd = null, compact = false }) => {
     let cancelled = false;
     const timer = window.setTimeout(async () => {
       setSearching(true);
-      const results = await searchMovies(searchQuery);
+      const results = await searchMedia(searchQuery, mediaFilter);
       if (!cancelled) {
         setSearchResults(results);
         setResultsVisible(true);
@@ -46,7 +48,7 @@ const MovieSearch = ({ autoFocus = false, onAdd = null, compact = false }) => {
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [query, setSearchResults]);
+  }, [mediaFilter, query, setSearchResults]);
 
   const handleAddMovie = async (movie) => {
     await addMovie(movie);
@@ -83,13 +85,29 @@ const MovieSearch = ({ autoFocus = false, onAdd = null, compact = false }) => {
   return (
     <div ref={containerRef} className={compact ? 'movie-search-container compact' : 'movie-search-container'}>
       <div className="search-box">
+        <div className="search-media-toggle" aria-label="Arama türü">
+          {[
+            { id: 'movie', label: 'Film' },
+            { id: 'tv', label: 'Dizi' },
+            { id: 'all', label: 'Tümü' },
+          ].map(option => (
+            <button
+              key={option.id}
+              className={mediaFilter === option.id ? 'active' : ''}
+              type="button"
+              onClick={() => setMediaFilter(option.id)}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
         <div className="search-input-wrap">
           {!compact && <span className="search-prefix">Ara</span>}
           <input
             ref={inputRef}
             type="search"
             className="form-control search-input"
-            placeholder={compact ? 'Film ara...' : 'Film adı yaz...'}
+            placeholder={compact ? 'Film veya dizi ara...' : 'Film ya da dizi adı yaz...'}
             value={query}
             onChange={event => setQuery(event.target.value)}
           />
@@ -102,7 +120,7 @@ const MovieSearch = ({ autoFocus = false, onAdd = null, compact = false }) => {
             <div className="results-grid">
               {searchResults.map((movie) => (
                 <div
-                  key={movie.id}
+                  key={getMediaKey(movie)}
                   className="search-result-item"
                   onClick={() => {
                     setSelectedMovie(movie);
@@ -121,13 +139,16 @@ const MovieSearch = ({ autoFocus = false, onAdd = null, compact = false }) => {
                     <div className="result-poster-placeholder">Poster Yok</div>
                   )}
                   <div className="result-info">
-                    <h6 className="result-title">{movie.title}</h6>
+                    <div className="result-title-line">
+                      <h6 className="result-title">{movie.title}</h6>
+                      <span>{getMediaTypeLabel(movie)}</span>
+                    </div>
                     <p className="result-year">{movie.year}</p>
                     {movie.genres?.length > 0 && (
                       <p className="result-genres">{movie.genres.slice(0, 2).join(', ')}</p>
                     )}
                     {movie.rating > 0 && (
-                      <p className="result-rating">{movie.rating.toFixed(1)} IMDb</p>
+                      <p className="result-rating">{movie.rating.toFixed(1)} TMDB</p>
                     )}
                     <button
                       className="btn btn-sm btn-primary mt-2 w-100"

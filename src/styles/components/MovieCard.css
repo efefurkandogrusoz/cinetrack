@@ -121,6 +121,7 @@
 }
 
 .card-rating,
+.card-media-type,
 .card-status,
 .card-favorite-badge {
   display: inline-flex;
@@ -158,6 +159,24 @@
 
 .card-status.watched {
   background: rgba(31, 157, 85, 0.9);
+}
+
+.card-status.watching {
+  background: rgba(var(--primary-rgb), 0.86);
+}
+
+.card-status.completed {
+  background: rgba(31, 157, 85, 0.9);
+}
+
+.card-status.dropped {
+  background: rgba(118, 118, 118, 0.88);
+}
+
+.card-media-type {
+  padding: 0 9px;
+  border-color: rgba(var(--primary-rgb), 0.34);
+  background: rgba(var(--primary-rgb), 0.2);
 }
 
 .card-favorite-badge {
@@ -299,6 +318,23 @@
   -webkit-line-clamp: 3;
 }
 
+.card-progress {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.card-progress span {
+  min-height: 24px;
+  padding: 4px 8px;
+  border: 1px solid rgba(var(--primary-rgb), 0.2);
+  border-radius: 999px;
+  background: rgba(var(--primary-rgb), 0.09);
+  color: #f0f0f0;
+  font-size: 11px;
+  font-weight: 850;
+}
+
 .card-actions {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -384,6 +420,16 @@
   background: rgba(31, 157, 85, 0.22);
   border-color: rgba(45, 207, 134, 0.42);
   color: #9bf0c0;
+}
+
+.episode-btn {
+  border-color: rgba(var(--primary-rgb), 0.28);
+  background: rgba(var(--primary-rgb), 0.1);
+}
+
+.episode-btn:hover {
+  border-color: rgba(var(--primary-rgb), 0.52);
+  background: rgba(var(--primary-rgb), 0.16);
 }
 
 .delete-btn:hover {

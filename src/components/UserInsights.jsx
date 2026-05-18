@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { discoverMoviesByGenres, GENRE_MAP } from '../services/tmdb';
+import { ALL_GENRE_MAP, discoverMoviesByGenres, GENRE_MAP } from '../services/tmdb';
 import { useMovies } from '../context/MovieContext';
 import MovieDetailsModal from './MovieDetailsModal';
 import '../styles/components/UserInsights.css';
@@ -30,7 +30,7 @@ const UserInsights = () => {
       const ids = movie.genre_ids || [];
       if (ids.length > 0) {
         return ids
-          .map(id => ({ id, key: String(id), name: GENRE_MAP[id] }))
+          .map(id => ({ id, key: String(id), name: GENRE_MAP[id] || ALL_GENRE_MAP[id] }))
           .filter(genre => genre.name);
       }
 

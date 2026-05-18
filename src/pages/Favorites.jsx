@@ -6,7 +6,7 @@ import '../styles/pages/pages.css';
 
 const Favorites = () => {
   const { movies } = useMovies();
-  const favoriteMovies = movies.filter(movie => movie.favorite);
+  const favoriteMovies = movies.filter(movie => movie.favorite || movie.isFavorite);
 
   return (
     <div className="page-container">
@@ -14,8 +14,8 @@ const Favorites = () => {
       <div className="page-content">
         <div className="container-fluid">
           <div className="page-header">
-            <h2>Favori Filmler</h2>
-            <p>{favoriteMovies.length} favori film var</p>
+            <h2>Favoriler</h2>
+            <p>{favoriteMovies.length} favori film veya dizi var</p>
           </div>
           <MovieList movies={favoriteMovies} />
         </div>

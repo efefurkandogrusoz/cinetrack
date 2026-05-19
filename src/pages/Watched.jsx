@@ -1,4 +1,3 @@
-import React from 'react';
 import MovieList from '../components/MovieList';
 import Navbar from '../components/Navbar';
 import { useMovies } from '../context/MovieContext';

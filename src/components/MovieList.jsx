@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import MovieCard from './MovieCard';
 import { useMovies } from '../context/MovieContext';
 import { getMediaKey, getMediaType, getWatchStatus } from '../utils/media';

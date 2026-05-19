@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { getMediaFullDetails } from '../services/tmdb';
 import { useMovies } from '../context/MovieContext';
@@ -39,6 +39,7 @@ const MovieDetailsModal = ({ movie, onClose }) => {
   const mediaType = getMediaType(movie);
   const [details, setDetails] = useState(movie);
   const [loading, setLoading] = useState(false);
+  const [detailsError, setDetailsError] = useState(null);
 
   const listedMovie = useMemo(
     () => movies.find(item => getMediaKey(item) === getMediaKey(movie)),
@@ -49,6 +50,8 @@ const MovieDetailsModal = ({ movie, onClose }) => {
     ? {
       ...details,
       ...listedMovie,
+      overview: details?.overview || listedMovie.overview || '',
+      genres: details?.genres?.length ? details.genres : listedMovie.genres || [],
       totalSeasons: listedMovie.totalSeasons || details?.totalSeasons || 0,
       totalEpisodes: listedMovie.totalEpisodes || details?.totalEpisodes || 0,
       seasonEpisodeCounts: Object.keys(listedMovie.seasonEpisodeCounts || {}).length > 0
@@ -80,10 +83,20 @@ const MovieDetailsModal = ({ movie, onClose }) => {
 
     const timer = window.setTimeout(() => {
       setLoading(true);
+      setDetailsError(null);
       getMediaFullDetails(movie.id, mediaType)
         .then(fullDetails => {
-          if (!cancelled && fullDetails) {
+          if (cancelled) return;
+
+          if (fullDetails) {
             setDetails({ ...movie, ...fullDetails });
+          } else {
+            setDetailsError('Detaylar şu anda yüklenemedi. Kayıtlı bilgiler gösteriliyor.');
+          }
+        })
+        .catch(() => {
+          if (!cancelled) {
+            setDetailsError('Detaylar şu anda yüklenemedi. Kayıtlı bilgiler gösteriliyor.');
           }
         })
         .finally(() => {
@@ -226,6 +239,7 @@ const MovieDetailsModal = ({ movie, onClose }) => {
               {activeMovie.genres?.slice(0, 3).map(genre => <span key={genre}>{genre}</span>)}
             </div>
             <p>{activeMovie.overview || `Bu ${mediaLabel.toLowerCase()} için açıklama bulunamadı.`}</p>
+            {detailsError && <p className="movie-modal-warning" role="alert">{detailsError}</p>}
             <div className="movie-modal-actions">
               <button type="button" onClick={() => addToList(tvShow ? { watchStatus: 'watchlist' } : {})}>
                 {listedMovie ? 'Listede' : 'Listeye Ekle'}

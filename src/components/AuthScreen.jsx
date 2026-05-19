@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { loginUser, registerUser } from '../services/firebase';
 import { getFirebaseMessage } from '../utils/firebaseErrors';
 import {

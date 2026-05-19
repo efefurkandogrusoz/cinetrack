@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Bar,
   BarChart,
@@ -6,7 +6,6 @@ import {
   Cell,
   Pie,
   PieChart,
-  ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
@@ -36,7 +35,43 @@ const ChartTooltip = ({ active, payload, label }) => {
   return (
     <div className="statistics-tooltip">
       <strong>{name}</strong>
-      <span>{item.value} film</span>
+      <span>{item.value} kayıt</span>
+    </div>
+  );
+};
+
+const MeasuredChart = ({ children }) => {
+  const chartRef = useRef(null);
+  const [size, setSize] = useState({ width: 0, height: 0 });
+
+  useEffect(() => {
+    const node = chartRef.current;
+    if (!node) return undefined;
+
+    const updateSize = () => {
+      const bounds = node.getBoundingClientRect();
+      setSize({
+        width: Math.max(0, Math.floor(bounds.width)),
+        height: Math.max(0, Math.floor(bounds.height)),
+      });
+    };
+
+    updateSize();
+
+    if (!window.ResizeObserver) {
+      window.addEventListener('resize', updateSize);
+      return () => window.removeEventListener('resize', updateSize);
+    }
+
+    const observer = new ResizeObserver(updateSize);
+    observer.observe(node);
+
+    return () => observer.disconnect();
+  }, []);
+
+  return (
+    <div className="statistics-chart-shell" ref={chartRef}>
+      {size.width > 0 && size.height > 0 ? children(size) : <div className="statistics-chart-placeholder" />}
     </div>
   );
 };
@@ -84,11 +119,11 @@ const Statistics = () => {
                 <StatCard label="İzlenen" value={stats.watchedCount} hint="İzlendi olarak işaretlenenler" />
                 <StatCard label="İzlenecek" value={stats.watchlistCount} hint="Henüz izlenmeyi bekleyenler" />
                 <StatCard label="Favori" value={stats.favoriteCount} hint="Favorilerine eklediklerin" />
-                <StatCard label="Favori oranı" value={`${stats.favoriteRate.toFixed(0)}%`} hint="Favori / toplam film" />
+                <StatCard label="Favori oranı" value={`${stats.favoriteRate.toFixed(0)}%`} hint="Favori / toplam kayıt" />
                 <StatCard
                   label="Ortalama TMDB"
                   value={stats.ratingCount > 0 ? stats.averageTmdbRating.toFixed(1) : 'Henüz veri yok'}
-                  hint={stats.ratingCount > 0 ? `${stats.ratingCount} puanlı film üzerinden` : 'Puan verisi bulunamadı'}
+                  hint={stats.ratingCount > 0 ? `${stats.ratingCount} puanlı kayıt üzerinden` : 'Puan verisi bulunamadı'}
                 />
                 <StatCard label="En çok izlenen tür" value={stats.topWatchedGenre} hint="İzlenen kayıtlar içinde" />
                 <StatCard
@@ -108,9 +143,9 @@ const Statistics = () => {
                   </div>
 
                   {stats.genreDistribution.length > 0 ? (
-                    <div className="statistics-chart-shell">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
+                    <MeasuredChart>
+                      {({ width, height }) => (
+                        <PieChart width={width} height={height}>
                           <Pie
                             data={stats.genreDistribution.slice(0, 8)}
                             dataKey="count"
@@ -126,8 +161,8 @@ const Statistics = () => {
                           </Pie>
                           <Tooltip content={<ChartTooltip />} />
                         </PieChart>
-                      </ResponsiveContainer>
-                    </div>
+                      )}
+                    </MeasuredChart>
                   ) : (
                     <p className="statistics-muted">Tür verisi bulunamadı.</p>
                   )}
@@ -148,13 +183,13 @@ const Statistics = () => {
                   <div className="statistics-panel-head">
                     <div>
                       <h3>Liste Durumu</h3>
-                      <p>İzlenen, izlenecek ve favori film sayıların.</p>
+                      <p>İzlenen, izlenecek ve favori kayıt sayıların.</p>
                     </div>
                   </div>
 
-                  <div className="statistics-chart-shell">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={stats.statusDistribution} margin={{ top: 12, right: 8, left: -18, bottom: 0 }}>
+                  <MeasuredChart>
+                    {({ width, height }) => (
+                      <BarChart width={width} height={height} data={stats.statusDistribution} margin={{ top: 12, right: 8, left: -18, bottom: 0 }}>
                         <CartesianGrid stroke="rgba(255, 255, 255, 0.08)" vertical={false} />
                         <XAxis dataKey="name" tick={{ fill: '#d8d8d8', fontSize: 12 }} axisLine={false} tickLine={false} />
                         <YAxis tick={{ fill: '#a8a8a8', fontSize: 12 }} axisLine={false} tickLine={false} allowDecimals={false} />
@@ -165,8 +200,8 @@ const Statistics = () => {
                           ))}
                         </Bar>
                       </BarChart>
-                    </ResponsiveContainer>
-                  </div>
+                    )}
+                  </MeasuredChart>
                 </article>
               </section>
 
@@ -174,8 +209,8 @@ const Statistics = () => {
                 <article className="statistics-panel favorite-highlight">
                   <div className="statistics-panel-head">
                     <div>
-                      <h3>En Yüksek Puanlı Favori Film</h3>
-                      <p>Favorilerin arasında TMDB puanı en yüksek olan film.</p>
+                      <h3>En Yüksek Puanlı Favori Kayıt</h3>
+                      <p>Favorilerin arasında TMDB puanı en yüksek olan film veya dizi.</p>
                     </div>
                   </div>
 

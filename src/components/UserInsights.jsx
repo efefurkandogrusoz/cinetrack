@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ALL_GENRE_MAP, discoverMoviesByGenres, GENRE_MAP } from '../services/tmdb';
 import { useMovies } from '../context/MovieContext';
 import MovieDetailsModal from './MovieDetailsModal';

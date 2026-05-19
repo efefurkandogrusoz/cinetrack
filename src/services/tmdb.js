@@ -5,6 +5,8 @@
 const API_BASE_URL = 'https://api.themoviedb.org/3';
 const POSTER_BASE_URL = 'https://image.tmdb.org/t/p/w500';
 const BACKDROP_BASE_URL = 'https://image.tmdb.org/t/p/w1280';
+export const LANGUAGE = 'tr-TR';
+export const FALLBACK_LANGUAGE = 'en-US';
 
 export const MOVIE_GENRE_MAP = {
   12: 'Macera',
@@ -76,7 +78,39 @@ const fetchTmdb = async (path, params = {}) => {
   return response.json();
 };
 
+const withLanguage = (params = {}, language = LANGUAGE) => ({
+  language,
+  ...params,
+});
+
+const fetchLocalizedTmdb = async (path, params = {}) => {
+  const [localizedResult, fallbackResult] = await Promise.allSettled([
+    fetchTmdb(path, withLanguage(params, LANGUAGE)),
+    fetchTmdb(path, withLanguage(params, FALLBACK_LANGUAGE)),
+  ]);
+
+  const localizedData = localizedResult.status === 'fulfilled' ? localizedResult.value : null;
+  const fallbackData = fallbackResult.status === 'fulfilled' ? fallbackResult.value : null;
+
+  if (!localizedData && !fallbackData && localizedResult.status === 'rejected') {
+    throw localizedResult.reason;
+  }
+
+  return {
+    data: localizedData || fallbackData,
+    fallbackData: localizedData ? fallbackData : null,
+  };
+};
+
 const getGenreMap = (mediaType) => (mediaType === 'tv' ? TV_GENRE_MAP : MOVIE_GENRE_MAP);
+
+const hasText = (value) => typeof value === 'string' && value.trim().length > 0;
+
+const getNoOverviewMessage = (mediaType) => (
+  mediaType === 'tv'
+    ? 'Bu dizi için açıklama bulunamadı.'
+    : 'Bu film için açıklama bulunamadı.'
+);
 
 const getYear = (dateValue) => {
   if (!dateValue) return 'N/A';
@@ -84,12 +118,75 @@ const getYear = (dateValue) => {
   return Number.isFinite(year) ? year : 'N/A';
 };
 
-const getTrailerKey = (videos = []) => {
-  const trailer = videos.find(video =>
-    video.site === 'YouTube' && video.type === 'Trailer'
-  ) || videos.find(video => video.site === 'YouTube');
+const getMediaTypeFromItem = (item, fallbackMediaType = 'movie') => (
+  item?.media_type === 'tv' || fallbackMediaType === 'tv' ? 'tv' : 'movie'
+);
+
+const getFallbackLookupKey = (item, fallbackMediaType = 'movie') => (
+  `${getMediaTypeFromItem(item, fallbackMediaType)}:${item.id}`
+);
+
+const mergeLocalizedMediaItem = (item, fallbackItem = null, fallbackMediaType = 'movie') => {
+  if (!item && !fallbackItem) return null;
+
+  const baseItem = item || fallbackItem;
+  const mediaType = getMediaTypeFromItem(baseItem, fallbackMediaType);
+  const overview = hasText(item?.overview)
+    ? item.overview.trim()
+    : hasText(fallbackItem?.overview)
+      ? fallbackItem.overview.trim()
+      : getNoOverviewMessage(mediaType);
+
+  return {
+    ...fallbackItem,
+    ...item,
+    overview,
+  };
+};
+
+const mergeLocalizedResults = (items = [], fallbackItems = [], fallbackMediaType = 'movie') => {
+  const fallbackMap = new Map(
+    fallbackItems
+      .filter(item => item?.id)
+      .map(item => [getFallbackLookupKey(item, item.media_type || fallbackMediaType), item])
+  );
+
+  return items.map(item => mergeLocalizedMediaItem(
+    item,
+    fallbackMap.get(getFallbackLookupKey(item, item.media_type || fallbackMediaType)),
+    item.media_type || fallbackMediaType,
+  )).filter(Boolean);
+};
+
+const getTrailerKey = (localizedVideos = [], fallbackVideos = []) => {
+  const trYoutubeVideos = localizedVideos.filter(video => video.site === 'YouTube');
+  const enYoutubeVideos = fallbackVideos.filter(video => video.site === 'YouTube');
+  const allYoutubeVideos = [...trYoutubeVideos, ...enYoutubeVideos];
+
+  const trailer =
+    trYoutubeVideos.find(video => video.type === 'Trailer' && video.official) ||
+    trYoutubeVideos.find(video => video.type === 'Teaser') ||
+    enYoutubeVideos.find(video => video.type === 'Trailer' && video.official) ||
+    enYoutubeVideos.find(video => video.type === 'Teaser') ||
+    allYoutubeVideos[0];
 
   return trailer?.key || null;
+};
+
+const getLocalizedTrailerKey = async (mediaId, mediaType) => {
+  const [localizedResult, fallbackResult] = await Promise.allSettled([
+    fetchTmdb(`/${mediaType}/${mediaId}/videos`, withLanguage({}, LANGUAGE)),
+    fetchTmdb(`/${mediaType}/${mediaId}/videos`, withLanguage({}, FALLBACK_LANGUAGE)),
+  ]);
+
+  const localizedVideos = localizedResult.status === 'fulfilled'
+    ? localizedResult.value?.results || []
+    : [];
+  const fallbackVideos = fallbackResult.status === 'fulfilled'
+    ? fallbackResult.value?.results || []
+    : [];
+
+  return getTrailerKey(localizedVideos, fallbackVideos);
 };
 
 const formatSeasonCounts = (seasons = []) => (
@@ -102,7 +199,7 @@ const formatSeasonCounts = (seasons = []) => (
 );
 
 const formatMedia = (item, fallbackMediaType = 'movie') => {
-  const mediaType = item.media_type === 'tv' || fallbackMediaType === 'tv' ? 'tv' : 'movie';
+  const mediaType = getMediaTypeFromItem(item, fallbackMediaType);
   const title = mediaType === 'tv'
     ? item.name || item.original_name || item.title
     : item.title || item.original_title || item.name;
@@ -111,6 +208,7 @@ const formatMedia = (item, fallbackMediaType = 'movie') => {
   const genreIds = item.genre_ids || item.genres?.map(genre => genre.id) || [];
   const seasons = item.seasons || [];
   const seasonEpisodeCounts = formatSeasonCounts(seasons);
+  const overview = hasText(item.overview) ? item.overview.trim() : getNoOverviewMessage(mediaType);
 
   return {
     id: item.id,
@@ -125,7 +223,7 @@ const formatMedia = (item, fallbackMediaType = 'movie') => {
     releaseDate: releaseDate || '',
     first_air_date: mediaType === 'tv' ? releaseDate || '' : '',
     firstAirDate: mediaType === 'tv' ? releaseDate || '' : '',
-    overview: item.overview || '',
+    overview,
     rating: item.vote_average || 0,
     voteAverage: item.vote_average || 0,
     poster: item.poster_path ? `${POSTER_BASE_URL}${item.poster_path}` : null,
@@ -168,17 +266,22 @@ export const searchMedia = async (query, mediaType = 'movie') => {
 
   try {
     const cleanedMediaType = mediaType === 'all' ? 'multi' : mediaType;
-    const data = await fetchTmdb(`/search/${cleanedMediaType}`, {
+    const { data, fallbackData } = await fetchLocalizedTmdb(`/search/${cleanedMediaType}`, {
       query: query.trim(),
       include_adult: 'false',
     });
 
     if (!data) return [];
 
+    const primaryResults = mediaType === 'all'
+      ? (data.results || []).filter(item => item.media_type === 'movie' || item.media_type === 'tv')
+      : data.results || [];
+    const fallbackResults = mediaType === 'all'
+      ? (fallbackData?.results || []).filter(item => item.media_type === 'movie' || item.media_type === 'tv')
+      : fallbackData?.results || [];
+
     return formatMediaList(
-      mediaType === 'all'
-        ? (data.results || []).filter(item => item.media_type === 'movie' || item.media_type === 'tv')
-        : data.results || [],
+      mergeLocalizedResults(primaryResults, fallbackResults, mediaType === 'tv' ? 'tv' : 'movie'),
       mediaType === 'tv' ? 'tv' : 'movie',
     );
   } catch (error) {
@@ -192,8 +295,9 @@ export const searchTvShows = (query) => searchMedia(query, 'tv');
 
 export const getMovieDetails = async (movieId) => {
   try {
-    const data = await fetchTmdb(`/movie/${movieId}`);
-    return data ? formatMedia(data, 'movie') : null;
+    const { data, fallbackData } = await fetchLocalizedTmdb(`/movie/${movieId}`);
+    const localizedData = mergeLocalizedMediaItem(data, fallbackData, 'movie');
+    return localizedData ? formatMedia(localizedData, 'movie') : null;
   } catch (error) {
     console.error('Error fetching movie details:', error);
     return null;
@@ -203,19 +307,22 @@ export const getMovieDetails = async (movieId) => {
 export const getMediaFullDetails = async (mediaId, mediaType = 'movie') => {
   try {
     const cleanedType = mediaType === 'tv' ? 'tv' : 'movie';
-    const data = await fetchTmdb(`/${cleanedType}/${mediaId}`, {
-      append_to_response: 'credits,videos',
-    });
+    const [{ data, fallbackData }, trailerKey] = await Promise.all([
+      fetchLocalizedTmdb(`/${cleanedType}/${mediaId}`, {
+        append_to_response: 'credits',
+      }),
+      getLocalizedTrailerKey(mediaId, cleanedType),
+    ]);
 
     if (!data) return null;
 
-    const trailerKey = getTrailerKey(data.videos?.results || []);
+    const localizedData = mergeLocalizedMediaItem(data, fallbackData, cleanedType);
 
     return {
-      ...formatMedia(data, cleanedType),
-      runtime: cleanedType === 'movie' ? data.runtime || null : null,
+      ...formatMedia(localizedData, cleanedType),
+      runtime: cleanedType === 'movie' ? localizedData.runtime || null : null,
       trailerKey,
-      cast: (data.credits?.cast || []).slice(0, 8).map(actor => ({
+      cast: (localizedData.credits?.cast || []).slice(0, 8).map(actor => ({
         id: actor.id,
         name: actor.name,
         character: actor.character,
@@ -235,7 +342,7 @@ export const discoverMoviesByGenres = async (genreIds = [], excludedMovieIds = [
   if (cleanedGenreIds.length === 0) return [];
 
   try {
-    const data = await fetchTmdb('/discover/movie', {
+    const { data, fallbackData } = await fetchLocalizedTmdb('/discover/movie', {
       include_adult: 'false',
       sort_by: 'vote_average.desc',
       'vote_count.gte': '300',
@@ -244,7 +351,7 @@ export const discoverMoviesByGenres = async (genreIds = [], excludedMovieIds = [
 
     const excluded = new Set(excludedMovieIds);
 
-    return formatMediaList(data?.results || [], 'movie')
+    return formatMediaList(mergeLocalizedResults(data?.results || [], fallbackData?.results || [], 'movie'), 'movie')
       .filter(movie => !excluded.has(movie.id))
       .slice(0, 8);
   } catch (error) {
@@ -281,10 +388,10 @@ const getCatalogForType = async ({
     }
   }
 
-  const data = await fetchTmdb(`/${endpoint}`, params);
+  const { data, fallbackData } = await fetchLocalizedTmdb(`/${endpoint}`, params);
 
   return {
-    results: formatMediaList(data?.results || [], type),
+    results: formatMediaList(mergeLocalizedResults(data?.results || [], fallbackData?.results || [], type), type),
     page: data?.page || page,
     totalPages: Math.min(data?.total_pages || 1, 500),
   };
@@ -300,14 +407,16 @@ export const getMovieCatalog = async ({
   try {
     if (mediaType === 'all') {
       if (query.trim()) {
-        const data = await fetchTmdb('/search/multi', {
+        const { data, fallbackData } = await fetchLocalizedTmdb('/search/multi', {
           query: query.trim(),
           include_adult: 'false',
           page: String(page),
         });
+        const primaryResults = (data?.results || []).filter(item => item.media_type === 'movie' || item.media_type === 'tv');
+        const fallbackResults = (fallbackData?.results || []).filter(item => item.media_type === 'movie' || item.media_type === 'tv');
 
         return {
-          results: sortMixedMedia(formatMediaList(data?.results || [], 'movie'), sortBy),
+          results: sortMixedMedia(formatMediaList(mergeLocalizedResults(primaryResults, fallbackResults, 'movie'), 'movie'), sortBy),
           page: data?.page || page,
           totalPages: Math.min(data?.total_pages || 1, 500),
         };
@@ -335,18 +444,28 @@ export const getMovieCatalog = async ({
 
 export const getPopularMovies = async () => {
   try {
-    const data = await fetchTmdb('/movie/popular', { include_adult: 'false' });
-    return formatMediaList(data?.results || [], 'movie').slice(0, 10);
+    const { data, fallbackData } = await fetchLocalizedTmdb('/movie/popular', { include_adult: 'false' });
+    return formatMediaList(mergeLocalizedResults(data?.results || [], fallbackData?.results || [], 'movie'), 'movie').slice(0, 10);
   } catch (error) {
     console.error('Error fetching popular movies:', error);
     return [];
   }
 };
 
+export const getPopularTvShows = async () => {
+  try {
+    const { data, fallbackData } = await fetchLocalizedTmdb('/tv/popular', { include_adult: 'false' });
+    return formatMediaList(mergeLocalizedResults(data?.results || [], fallbackData?.results || [], 'tv'), 'tv').slice(0, 10);
+  } catch (error) {
+    console.error('Error fetching popular tv shows:', error);
+    return [];
+  }
+};
+
 export const getTopRatedMovies = async () => {
   try {
-    const data = await fetchTmdb('/movie/top_rated', { include_adult: 'false' });
-    return formatMediaList(data?.results || [], 'movie').slice(0, 10);
+    const { data, fallbackData } = await fetchLocalizedTmdb('/movie/top_rated', { include_adult: 'false' });
+    return formatMediaList(mergeLocalizedResults(data?.results || [], fallbackData?.results || [], 'movie'), 'movie').slice(0, 10);
   } catch (error) {
     console.error('Error fetching top rated movies:', error);
     return [];
@@ -355,8 +474,8 @@ export const getTopRatedMovies = async () => {
 
 const getTrendingMedia = async (mediaType, timeWindow) => {
   try {
-    const data = await fetchTmdb(`/trending/${mediaType}/${timeWindow}`);
-    return formatMediaList(data?.results || [], mediaType).slice(0, 10);
+    const { data, fallbackData } = await fetchLocalizedTmdb(`/trending/${mediaType}/${timeWindow}`);
+    return formatMediaList(mergeLocalizedResults(data?.results || [], fallbackData?.results || [], mediaType), mediaType).slice(0, 10);
   } catch (error) {
     console.error(`Error fetching ${timeWindow} trending ${mediaType}:`, error);
     return [];
@@ -373,8 +492,7 @@ export const getMediaTrailer = async (mediaId, mediaType = 'movie') => {
     if (!mediaId) return null;
 
     const cleanedType = mediaType === 'tv' ? 'tv' : 'movie';
-    const data = await fetchTmdb(`/${cleanedType}/${mediaId}/videos`);
-    return getTrailerKey(data?.results || []);
+    return getLocalizedTrailerKey(mediaId, cleanedType);
   } catch (error) {
     console.error('Error fetching trailer:', error);
     return null;
@@ -395,6 +513,7 @@ export default {
   discoverMoviesByGenres,
   getMovieCatalog,
   getPopularMovies,
+  getPopularTvShows,
   getTopRatedMovies,
   getDailyTrendingMovies,
   getWeeklyTrendingMovies,
@@ -407,4 +526,6 @@ export default {
   MOVIE_GENRE_MAP,
   TV_GENRE_MAP,
   ALL_GENRE_MAP,
+  LANGUAGE,
+  FALLBACK_LANGUAGE,
 };

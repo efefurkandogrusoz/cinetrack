@@ -1,5 +1,5 @@
 /* eslint-disable react-refresh/only-export-components */
-import React, { createContext, useReducer, useCallback, useEffect, useMemo } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useReducer } from 'react';
 import * as firebaseService from '../services/firebase';
 import * as storageService from '../services/storage';
 import { getMediaKey, isTvShow, normalizeMediaItem } from '../utils/media';
@@ -589,7 +589,7 @@ export const MovieProvider = ({ children }) => {
 };
 
 export const useMovies = () => {
-  const context = React.useContext(MovieContext);
+  const context = useContext(MovieContext);
   if (!context) {
     throw new Error('useMovies must be used within MovieProvider');
   }

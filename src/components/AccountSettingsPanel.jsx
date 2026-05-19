@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useMovies } from '../context/MovieContext';
 import { getFirebaseMessage } from '../utils/firebaseErrors';
 import { updateRememberedAccount } from '../utils/rememberedAccounts';

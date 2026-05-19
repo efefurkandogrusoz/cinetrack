@@ -29,13 +29,30 @@ import {
   reauthenticateWithCredential,
 } from "firebase/auth";
 
+const requiredFirebaseEnvKeys = [
+  'VITE_FIREBASE_API_KEY',
+  'VITE_FIREBASE_AUTH_DOMAIN',
+  'VITE_FIREBASE_PROJECT_ID',
+  'VITE_FIREBASE_STORAGE_BUCKET',
+  'VITE_FIREBASE_MESSAGING_SENDER_ID',
+  'VITE_FIREBASE_APP_ID',
+];
+
+const missingFirebaseEnvKeys = requiredFirebaseEnvKeys.filter(key => !import.meta.env[key]);
+
+if (missingFirebaseEnvKeys.length > 0) {
+  console.warn(
+    `Firebase yapılandırması eksik: ${missingFirebaseEnvKeys.join(', ')}. Lütfen .env dosyasını .env.example üzerinden doldurun.`
+  );
+}
+
 const firebaseConfig = {
-    apiKey: "AIzaSyBhImB694lNfX1-Iqz4tA30RDNYV-gQ4DE",
-    authDomain: "film-takip-d93f9.firebaseapp.com",
-    projectId: "film-takip-d93f9",
-    storageBucket: "film-takip-d93f9.firebasestorage.app",
-    messagingSenderId: "230298985707",
-    appId: "1:230298985707:web:f3408817a4097cab2f0aae"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
 };
 
 const app = initializeApp(firebaseConfig);

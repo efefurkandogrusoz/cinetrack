@@ -1,4 +1,3 @@
-import React from 'react';
 import AccountSettingsPanel from '../components/AccountSettingsPanel';
 import Navbar from '../components/Navbar';
 import { useMovies } from '../context/MovieContext';

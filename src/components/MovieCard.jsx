@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useMovies } from '../context/MovieContext';
 import { getMediaTrailer } from '../services/tmdb';
@@ -58,11 +58,11 @@ const MovieCard = ({ movie }) => {
       try {
         const key = await getMediaTrailer(movie.id, movie.mediaType);
         if (!key) {
-          setTrailerError('Fragman bulunamadı.');
+          setTrailerError(`Bu ${mediaLabel.toLowerCase()} için fragman bulunamadı.`);
           return;
         }
         setTrailerKey(key);
-      } catch (error) {
+      } catch {
         setTrailerError('Fragman yüklenemedi.');
       } finally {
         setTrailerLoading(false);
@@ -258,7 +258,7 @@ const MovieCard = ({ movie }) => {
                   allowFullScreen
                 />
               ) : (
-                <div className="trailer-error">Fragman bulunamadı.</div>
+                <div className="trailer-error">Bu {mediaLabel.toLowerCase()} için fragman bulunamadı.</div>
               )}
             </div>
           </section>

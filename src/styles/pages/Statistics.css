@@ -137,6 +137,13 @@
   overflow: hidden;
 }
 
+.statistics-chart-placeholder {
+  width: 100%;
+  height: 100%;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.035);
+}
+
 .statistics-tooltip {
   display: grid;
   gap: 3px;

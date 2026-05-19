@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import { useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import ContinueWatching from '../components/ContinueWatching';
 import DiscoveryRows from '../components/DiscoveryRows';

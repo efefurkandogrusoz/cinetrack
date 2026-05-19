@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import MovieDetailsModal from '../components/MovieDetailsModal';
 import Navbar from '../components/Navbar';
 import { useMovies } from '../context/MovieContext';

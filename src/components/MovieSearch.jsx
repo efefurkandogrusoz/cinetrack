@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { searchMedia } from '../services/tmdb';
 import { useMovies } from '../context/MovieContext';
 import { getMediaKey, getMediaTypeLabel } from '../utils/media';
@@ -57,11 +57,6 @@ const MovieSearch = ({ autoFocus = false, onAdd = null, compact = false }) => {
     onAdd?.();
   };
 
-  const handleClear = () => {
-    setQuery('');
-    setSearchResults([]);
-  };
-
   const handleResultsClick = (e) => {
     if (e.target === e.currentTarget) {
       setSearchResults([]);
@@ -85,22 +80,24 @@ const MovieSearch = ({ autoFocus = false, onAdd = null, compact = false }) => {
   return (
     <div ref={containerRef} className={compact ? 'movie-search-container compact' : 'movie-search-container'}>
       <div className="search-box">
-        <div className="search-media-toggle" aria-label="Arama türü">
-          {[
-            { id: 'movie', label: 'Film' },
-            { id: 'tv', label: 'Dizi' },
-            { id: 'all', label: 'Tümü' },
-          ].map(option => (
-            <button
-              key={option.id}
-              className={mediaFilter === option.id ? 'active' : ''}
-              type="button"
-              onClick={() => setMediaFilter(option.id)}
-            >
-              {option.label}
-            </button>
-          ))}
-        </div>
+        {!compact && (
+          <div className="search-media-toggle" aria-label="Arama türü">
+            {[
+              { id: 'movie', label: 'Film' },
+              { id: 'tv', label: 'Dizi' },
+              { id: 'all', label: 'Tümü' },
+            ].map(option => (
+              <button
+                key={option.id}
+                className={mediaFilter === option.id ? 'active' : ''}
+                type="button"
+                onClick={() => setMediaFilter(option.id)}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+        )}
         <div className="search-input-wrap">
           {!compact && <span className="search-prefix">Ara</span>}
           <input

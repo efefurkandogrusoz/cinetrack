@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useMovies } from '../context/MovieContext';
 import { getMediaKey, getMediaTypeLabel } from '../utils/media';
 import MovieDetailsModal from './MovieDetailsModal';

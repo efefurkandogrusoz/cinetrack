@@ -93,6 +93,17 @@
   font-weight: 500;
 }
 
+.movie-modal-warning {
+  width: fit-content;
+  padding: 8px 10px;
+  border: 1px solid rgba(255, 191, 71, 0.28);
+  border-radius: 8px;
+  background: rgba(255, 191, 71, 0.12);
+  color: #ffe0a0 !important;
+  font-size: 13px !important;
+  font-weight: 850;
+}
+
 .movie-modal-meta {
   display: flex;
   flex-wrap: wrap;

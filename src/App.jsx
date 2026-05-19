@@ -1,47 +1,59 @@
-import React from 'react';
+import { lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { MovieProvider, useMovies } from './context/MovieContext';
-import AuthScreen from './components/AuthScreen';
-import Home from './pages/Home';
-import Movies from './pages/Movies';
-import Watched from './pages/Watched';
-import Watchlist from './pages/Watchlist';
-import Favorites from './pages/Favorites';
-import AccountSettings from './pages/AccountSettings';
-import Settings from './pages/Settings';
-import Statistics from './pages/Statistics';
 import './styles/global.css';
+
+const AuthScreen = lazy(() => import('./components/AuthScreen'));
+const Home = lazy(() => import('./pages/Home'));
+const Movies = lazy(() => import('./pages/Movies'));
+const Watched = lazy(() => import('./pages/Watched'));
+const Watchlist = lazy(() => import('./pages/Watchlist'));
+const Favorites = lazy(() => import('./pages/Favorites'));
+const AccountSettings = lazy(() => import('./pages/AccountSettings'));
+const Settings = lazy(() => import('./pages/Settings'));
+const Statistics = lazy(() => import('./pages/Statistics'));
+
+const AppFallback = () => {
+  const logoUrl = `${import.meta.env.BASE_URL}cinetrack-logo.png`;
+
+  return (
+    <main className="app-loading">
+      <img className="app-loading-logo" src={logoUrl} alt="CineTrack" />
+      <p>Yükleniyor...</p>
+    </main>
+  );
+};
 
 const AppRoutes = () => {
   const { authReady, user } = useMovies();
-  const logoUrl = `${import.meta.env.BASE_URL}cinetrack-logo.png`;
 
   if (!authReady) {
-    return (
-      <main className="app-loading">
-        <img className="app-loading-logo" src={logoUrl} alt="CineTrack" />
-        <p>Yükleniyor...</p>
-      </main>
-    );
+    return <AppFallback />;
   }
 
   if (!user) {
-    return <AuthScreen />;
+    return (
+      <Suspense fallback={<AppFallback />}>
+        <AuthScreen />
+      </Suspense>
+    );
   }
 
   return (
     <Router basename={import.meta.env.BASE_URL}>
-      <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/movies" element={<Movies />} />
-        <Route path="/watched" element={<Watched />} />
-        <Route path="/watchlist" element={<Watchlist />} />
-        <Route path="/favorites" element={<Favorites />} />
-        <Route path="/statistics" element={<Statistics />} />
-        <Route path="/istatistikler" element={<Statistics />} />
-        <Route path="/account-settings" element={<AccountSettings />} />
-        <Route path="/settings" element={<Settings />} />
-      </Routes>
+      <Suspense fallback={<AppFallback />}>
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/movies" element={<Movies />} />
+          <Route path="/watched" element={<Watched />} />
+          <Route path="/watchlist" element={<Watchlist />} />
+          <Route path="/favorites" element={<Favorites />} />
+          <Route path="/statistics" element={<Statistics />} />
+          <Route path="/istatistikler" element={<Statistics />} />
+          <Route path="/account-settings" element={<AccountSettings />} />
+          <Route path="/settings" element={<Settings />} />
+        </Routes>
+      </Suspense>
     </Router>
   );
 };

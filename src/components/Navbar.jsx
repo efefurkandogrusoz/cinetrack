@@ -4,6 +4,7 @@ import { logoutUser } from '../services/firebase';
 import { useMovies } from '../context/MovieContext';
 import { getWatchStatus } from '../utils/media';
 import MovieSearch from './MovieSearch';
+import UserAvatar from './UserAvatar';
 import '../styles/components/Navbar.css';
 
 const Navbar = () => {
@@ -104,8 +105,6 @@ const Navbar = () => {
   };
 
   const accountLabel = userProfile?.displayName || user?.displayName || user?.email || 'Kullanıcı';
-  const accountInitial = accountLabel.trim().slice(0, 1).toUpperCase() || 'K';
-  const accountPhoto = userProfile?.photoURL || userProfile?.avatarUrl || user?.photoURL || null;
   const isAccountSettings = location.pathname === '/account-settings';
   const isSettings = location.pathname === '/settings';
   const isWatched = location.pathname === '/watched';
@@ -154,9 +153,11 @@ const Navbar = () => {
             aria-label="Profil menüsünü aç"
             onClick={toggleDrawer}
           >
-            <span className={accountPhoto ? 'profile-menu-avatar has-image' : 'profile-menu-avatar'}>
-              {accountPhoto ? <img src={accountPhoto} alt="" /> : accountInitial}
-            </span>
+            <UserAvatar
+              profile={userProfile}
+              className="profile-menu-avatar"
+              decorative
+            />
           </button>
         </div>
       </nav>
@@ -164,9 +165,11 @@ const Navbar = () => {
       <aside className={drawerOpen ? 'side-drawer open' : 'side-drawer'} aria-hidden={!drawerOpen}>
         <div className="drawer-head">
           <div className="drawer-user">
-            <span className={accountPhoto ? 'account-avatar has-image' : 'account-avatar'}>
-              {accountPhoto ? <img src={accountPhoto} alt="" /> : accountInitial}
-            </span>
+            <UserAvatar
+              profile={userProfile}
+              className="account-avatar"
+              decorative
+            />
             <div>
               <strong>{accountLabel}</strong>
               <small>{user?.email}</small>

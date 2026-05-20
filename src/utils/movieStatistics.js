@@ -1,5 +1,5 @@
 import { ALL_GENRE_MAP } from '../services/tmdb';
-import { getWatchStatus } from './media';
+import { getTvProgress, getWatchStatus, isTvShow } from './media';
 
 const getMovieRating = (movie) => {
   const value = Number(movie.rating ?? movie.vote_average ?? movie.voteAverage);
@@ -32,6 +32,15 @@ export const calculateMovieStatistics = (movies = []) => {
   const watchedMovies = movies.filter(movie => movie.watched || getWatchStatus(movie) === 'completed' || getWatchStatus(movie) === 'watched');
   const watchlistMovies = movies.filter(movie => getWatchStatus(movie) === 'watchlist');
   const favoriteMovies = movies.filter(movie => movie.favorite || movie.isFavorite);
+  const tvShows = movies.filter(isTvShow);
+  const watchingTvShows = tvShows.filter(show => getWatchStatus(show) === 'watching');
+  const completedTvShows = tvShows.filter(show => getWatchStatus(show) === 'completed');
+  const droppedTvShows = tvShows.filter(show => getWatchStatus(show) === 'dropped');
+  const tvProgressValues = tvShows.map(show => getTvProgress(show));
+  const totalWatchedEpisodes = tvProgressValues.reduce((total, progress) => total + progress.watchedEpisodes, 0);
+  const averageTvProgress = tvProgressValues.length > 0
+    ? tvProgressValues.reduce((total, progress) => total + progress.progressPercent, 0) / tvProgressValues.length
+    : 0;
   const ratingValues = movies.map(getMovieRating).filter(Boolean);
   const genreCounts = new Map();
   const watchedGenreCounts = new Map();
@@ -58,6 +67,11 @@ export const calculateMovieStatistics = (movies = []) => {
     watchedCount: watchedMovies.length,
     watchlistCount: watchlistMovies.length,
     favoriteCount: favoriteMovies.length,
+    watchingTvCount: watchingTvShows.length,
+    completedTvCount: completedTvShows.length,
+    droppedTvCount: droppedTvShows.length,
+    averageTvProgress,
+    totalWatchedEpisodes,
     favoriteRate,
     averageTmdbRating,
     ratingCount: ratingValues.length,
@@ -66,8 +80,9 @@ export const calculateMovieStatistics = (movies = []) => {
     genreDistribution,
     statusDistribution: [
       { name: 'İzlendi', count: watchedMovies.length },
-      { name: 'İzlenecek', count: watchlistMovies.length },
+      { name: 'Planlanan', count: watchlistMovies.length },
       { name: 'Favoriler', count: favoriteMovies.length },
+      { name: 'Devam edilen diziler', count: watchingTvShows.length },
     ],
     tasteGenres,
   };

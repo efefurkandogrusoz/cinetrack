@@ -28,6 +28,11 @@ import {
   EmailAuthProvider,
   reauthenticateWithCredential,
 } from "firebase/auth";
+import {
+  DEFAULT_PROFILE_AVATAR,
+  hasProfileAvatarUpdate,
+  normalizeProfileAvatarFields,
+} from '../constants/profileAvatars';
 
 const requiredFirebaseEnvKeys = [
   'VITE_FIREBASE_API_KEY',
@@ -76,8 +81,7 @@ const USERS_COLLECTION = 'users';
 
 const saveUserProfile = async (user, extra = {}) => {
   const displayName = extra.displayName || user.displayName || user.email?.split('@')[0] || 'Kullanıcı';
-
-  await setDoc(doc(db, USERS_COLLECTION, user.uid), {
+  const profileData = {
     uid: user.uid,
     email: user.email,
     displayName,
@@ -85,7 +89,13 @@ const saveUserProfile = async (user, extra = {}) => {
     provider: 'password',
     updatedAt: serverTimestamp(),
     ...extra,
-  }, { merge: true });
+  };
+
+  if (hasProfileAvatarUpdate(extra)) {
+    Object.assign(profileData, normalizeProfileAvatarFields(extra));
+  }
+
+  await setDoc(doc(db, USERS_COLLECTION, user.uid), profileData, { merge: true });
 };
 
 const withTimeout = (promise, timeoutMs, message) => {
@@ -192,6 +202,10 @@ export const registerUser = async (email, password, displayName = '', rememberSe
     });
     saveUserProfileSafely(userCredential.user, {
       displayName: cleanDisplayName,
+      avatarType: 'preset',
+      avatarId: DEFAULT_PROFILE_AVATAR,
+      avatarUrl: null,
+      avatar: DEFAULT_PROFILE_AVATAR,
       createdAt: serverTimestamp(),
       lastLoginAt: serverTimestamp(),
     });
@@ -236,14 +250,30 @@ export const getUserProfile = async (uid) => {
       4000,
       'User profile request timed out'
     );
-    return snapshot.exists() ? snapshot.data() : null;
+    if (!snapshot.exists()) return null;
+
+    const profile = snapshot.data();
+    return {
+      ...profile,
+      ...normalizeProfileAvatarFields(profile),
+    };
   } catch (error) {
     console.error('Error getting user profile:', error);
     return null;
   }
 };
 
-export const updateAccountSettings = async ({ displayName, email, password, profileNote, currentPassword }) => {
+export const updateAccountSettings = async ({
+  displayName,
+  email,
+  password,
+  profileNote,
+  currentPassword,
+  avatar,
+  avatarType,
+  avatarId,
+  avatarUrl,
+}) => {
   const user = auth.currentUser;
   if (!user) throw new Error('User must be signed in to update account settings');
 
@@ -266,6 +296,10 @@ export const updateAccountSettings = async ({ displayName, email, password, prof
   const cleanDisplayName = displayName?.trim() || user.displayName || user.email?.split('@')[0] || 'Kullanıcı';
   const cleanEmail = email?.trim().toLowerCase() || user.email;
   const cleanProfileNote = profileNote?.trim() || '';
+  const avatarUpdates = { avatar, avatarType, avatarId, avatarUrl };
+  const cleanAvatarFields = hasProfileAvatarUpdate(avatarUpdates)
+    ? normalizeProfileAvatarFields(avatarUpdates)
+    : null;
 
   // displayName güncellemesi (non-sensitive)
   if (cleanDisplayName && cleanDisplayName !== user.displayName) {
@@ -299,12 +333,18 @@ export const updateAccountSettings = async ({ displayName, email, password, prof
 
   // Firestore'a profil kaydet
   try {
-    await saveUserProfile(user, {
+    const profileUpdates = {
       displayName: cleanDisplayName,
       email: cleanEmail,
       profileNote: cleanProfileNote,
       updatedAt: serverTimestamp(),
-    });
+    };
+
+    if (cleanAvatarFields) {
+      Object.assign(profileUpdates, cleanAvatarFields);
+    }
+
+    await saveUserProfile(user, profileUpdates);
   } catch (error) {
     console.error('Error saving user profile:', error);
     throw error;
@@ -317,6 +357,7 @@ export const updateAccountSettings = async ({ displayName, email, password, prof
     photoURL: user.photoURL || null,
     provider: 'password',
     profileNote: cleanProfileNote,
+    ...(cleanAvatarFields || normalizeProfileAvatarFields({ avatar: DEFAULT_PROFILE_AVATAR })),
   };
 };
 

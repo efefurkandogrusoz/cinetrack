@@ -1,10 +1,12 @@
 import AccountSettingsPanel from '../components/AccountSettingsPanel';
 import Navbar from '../components/Navbar';
 import { useMovies } from '../context/MovieContext';
+import UserAvatar from '../components/UserAvatar';
 import '../styles/pages/pages.css';
 
 const AccountSettings = () => {
   const { user, userProfile } = useMovies();
+  const displayName = userProfile?.displayName || user?.displayName || 'Kullanıcı';
 
   return (
     <div className="page-container">
@@ -19,11 +21,13 @@ const AccountSettings = () => {
 
           <div className="account-settings-layout">
             <aside className="account-settings-summary">
-              <span className="account-avatar">
-                {(userProfile?.displayName || user?.displayName || user?.email || 'Kullanıcı').slice(0, 1).toUpperCase()}
-              </span>
+              <UserAvatar
+                profile={userProfile}
+                className="account-avatar"
+                label="Profil görseli"
+              />
               <div>
-                <h3>{userProfile?.displayName || user?.displayName || 'Kullanıcı'}</h3>
+                <h3>{displayName}</h3>
                 <p>{userProfile?.email || user?.email}</p>
                 {userProfile?.profileNote && <small>{userProfile.profileNote}</small>}
               </div>
@@ -31,7 +35,7 @@ const AccountSettings = () => {
 
             <div className="account-settings-shell">
               <AccountSettingsPanel
-                key={`${user?.uid}-${userProfile?.email || user?.email}-${userProfile?.displayName || user?.displayName}-${userProfile?.profileNote || ''}`}
+                key={user?.uid || 'guest'}
               />
             </div>
           </div>

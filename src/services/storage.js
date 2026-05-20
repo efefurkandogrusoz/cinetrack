@@ -2,10 +2,16 @@
 // Handles data persistence with automatic sync between localStorage and Firestore
 
 import { getMediaKey } from '../utils/media';
+import {
+  hasProfileAvatarUpdate,
+  normalizeProfileAvatarFields,
+} from '../constants/profileAvatars';
 
 const STORAGE_KEY = 'cinetrack_movies';
+const USER_PROFILE_KEY = 'cinetrack_user_profile';
 
 const getStorageKey = (userId = 'guest') => `${STORAGE_KEY}_${userId}`;
+const getUserProfileKey = (userId = 'guest') => `${USER_PROFILE_KEY}_${userId || 'guest'}`;
 
 const getDateTime = (value) => {
   if (!value) return 0;
@@ -66,6 +72,41 @@ export const getMoviesFromLocal = (userId) => {
   }
 };
 
+export const getUserProfileFromLocal = (userId) => {
+  try {
+    const data = localStorage.getItem(getUserProfileKey(userId));
+    if (!data) return null;
+
+    const profile = JSON.parse(data);
+    return {
+      ...profile,
+      ...normalizeProfileAvatarFields(profile),
+    };
+  } catch (error) {
+    console.error('Error reading user profile from localStorage:', error);
+    return null;
+  }
+};
+
+export const saveUserProfileToLocal = (profile, userId) => {
+  try {
+    const existingProfile = getUserProfileFromLocal(userId) || {};
+    const avatarSource = hasProfileAvatarUpdate(profile) ? profile : existingProfile;
+    const nextProfile = {
+      ...existingProfile,
+      ...profile,
+      ...normalizeProfileAvatarFields(avatarSource),
+      updatedAt: new Date().toISOString(),
+    };
+
+    localStorage.setItem(getUserProfileKey(userId), JSON.stringify(nextProfile));
+    return nextProfile;
+  } catch (error) {
+    console.error('Error saving user profile to localStorage:', error);
+    throw error;
+  }
+};
+
 // Clear localStorage
 export const clearLocal = (userId) => {
   try {
@@ -108,6 +149,8 @@ export const isOnline = () => {
 export default {
   saveMoviesToLocal,
   getMoviesFromLocal,
+  getUserProfileFromLocal,
+  saveUserProfileToLocal,
   clearLocal,
   syncWithFirebase,
   isOnline,

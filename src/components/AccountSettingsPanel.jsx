@@ -1,28 +1,194 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useMovies } from '../context/MovieContext';
 import { getFirebaseMessage } from '../utils/firebaseErrors';
 import { updateRememberedAccount } from '../utils/rememberedAccounts';
+import {
+  PROFILE_AVATARS,
+  PROFILE_IMAGE_MAX_BYTES,
+  PROFILE_IMAGE_SIZE,
+  normalizeProfileAvatarFields,
+} from '../constants/profileAvatars';
+import UserAvatar from './UserAvatar';
 import '../styles/components/Navbar.css';
+
+const securityFields = ['password', 'passwordConfirm', 'currentPassword'];
+const emptySecurityForm = {
+  password: '',
+  passwordConfirm: '',
+  currentPassword: '',
+};
+const acceptedImageTypes = ['image/jpeg', 'image/png', 'image/webp'];
+const acceptedImageExtensions = ['jpg', 'jpeg', 'png', 'webp'];
+
+const sameProfileAvatar = (first, second) => (
+  first.avatarType === second.avatarType &&
+  first.avatarId === second.avatarId &&
+  first.avatarUrl === second.avatarUrl
+);
+
+const getProfilePhotoValidationMessage = (file) => {
+  if (!file) return 'Profil fotoğrafı seçilemedi.';
+
+  const extension = file.name.split('.').pop()?.toLowerCase();
+  const isAcceptedType = acceptedImageTypes.includes(file.type);
+  const isAcceptedExtension = acceptedImageExtensions.includes(extension);
+  const hasImageMime = file.type ? file.type.startsWith('image/') : isAcceptedExtension;
+
+  if (!hasImageMime || (!isAcceptedType && !isAcceptedExtension)) {
+    return 'Sadece jpg, jpeg, png veya webp formatında görsel seçebilirsin.';
+  }
+
+  if (file.size > PROFILE_IMAGE_MAX_BYTES) {
+    return 'Profil fotoğrafı en fazla 2 MB olabilir.';
+  }
+
+  return '';
+};
+
+const resizeProfileImage = (file) => new Promise((resolve, reject) => {
+  const image = new Image();
+  const objectUrl = URL.createObjectURL(file);
+
+  image.onload = () => {
+    try {
+      const canvas = document.createElement('canvas');
+      const context = canvas.getContext('2d');
+
+      if (!context) {
+        throw new Error('canvas-unavailable');
+      }
+
+      const sourceSize = Math.min(image.naturalWidth, image.naturalHeight);
+      const sourceX = (image.naturalWidth - sourceSize) / 2;
+      const sourceY = (image.naturalHeight - sourceSize) / 2;
+
+      canvas.width = PROFILE_IMAGE_SIZE;
+      canvas.height = PROFILE_IMAGE_SIZE;
+      context.drawImage(
+        image,
+        sourceX,
+        sourceY,
+        sourceSize,
+        sourceSize,
+        0,
+        0,
+        PROFILE_IMAGE_SIZE,
+        PROFILE_IMAGE_SIZE,
+      );
+
+      const webpDataUrl = canvas.toDataURL('image/webp', 0.82);
+      const dataUrl = webpDataUrl.startsWith('data:image/webp')
+        ? webpDataUrl
+        : canvas.toDataURL('image/jpeg', 0.86);
+
+      resolve(dataUrl);
+    } catch (error) {
+      reject(error);
+    } finally {
+      URL.revokeObjectURL(objectUrl);
+    }
+  };
+
+  image.onerror = () => {
+    URL.revokeObjectURL(objectUrl);
+    reject(new Error('invalid-image'));
+  };
+
+  image.src = objectUrl;
+});
 
 const AccountSettingsPanel = () => {
   const { user, userProfile, updateAccountSettings } = useMovies();
-  const [form, setForm] = useState({
-    displayName: userProfile?.displayName || user?.displayName || '',
-    email: userProfile?.email || user?.email || '',
-    profileNote: userProfile?.profileNote || '',
-    password: '',
-    passwordConfirm: '',
-    currentPassword: '',
-  });
+  const profileDefaults = useMemo(() => {
+    const avatarFields = normalizeProfileAvatarFields(userProfile || {});
+
+    return {
+      displayName: userProfile?.displayName || user?.displayName || '',
+      email: userProfile?.email || user?.email || '',
+      profileNote: userProfile?.profileNote || '',
+      ...avatarFields,
+    };
+  }, [
+    user?.displayName,
+    user?.email,
+    userProfile,
+  ]);
+  const [profileUpdates, setProfileUpdates] = useState({});
+  const [securityForm, setSecurityForm] = useState(emptySecurityForm);
   const [saving, setSaving] = useState(false);
+  const [photoProcessing, setPhotoProcessing] = useState(false);
+  const [draggingPhoto, setDraggingPhoto] = useState(false);
   const [message, setMessage] = useState('');
   const [messageType, setMessageType] = useState('success');
   const [passwordVisible, setPasswordVisible] = useState(false);
   const [passwordConfirmVisible, setPasswordConfirmVisible] = useState(false);
   const [currentPasswordVisible, setCurrentPasswordVisible] = useState(false);
+  const form = { ...profileDefaults, ...profileUpdates, ...securityForm };
+  const selectedAvatar = normalizeProfileAvatarFields(form);
+  const selectedPresetId = selectedAvatar.avatarType === 'preset'
+    ? selectedAvatar.avatarId
+    : null;
+  const imageSelected = selectedAvatar.avatarType === 'image';
 
   const updateField = (field, value) => {
-    setForm(current => ({ ...current, [field]: value }));
+    if (securityFields.includes(field)) {
+      setSecurityForm(current => ({ ...current, [field]: value }));
+      return;
+    }
+
+    setProfileUpdates(current => ({ ...current, [field]: value }));
+  };
+
+  const selectPresetAvatar = (avatarId) => {
+    setMessage('');
+    setProfileUpdates(current => ({
+      ...current,
+      avatarType: 'preset',
+      avatarId,
+      avatarUrl: null,
+      avatar: avatarId,
+    }));
+  };
+
+  const handleProfilePhotoFile = async (file) => {
+    const validationMessage = getProfilePhotoValidationMessage(file);
+
+    if (validationMessage) {
+      setMessageType('error');
+      setMessage(validationMessage);
+      return;
+    }
+
+    setPhotoProcessing(true);
+    setMessage('');
+
+    try {
+      const avatarUrl = await resizeProfileImage(file);
+      setProfileUpdates(current => ({
+        ...current,
+        avatarType: 'image',
+        avatarId: null,
+        avatarUrl,
+        avatar: null,
+      }));
+    } catch (error) {
+      console.error('Profile photo could not be processed:', error);
+      setMessageType('error');
+      setMessage('Profil fotoğrafı okunamadı. Lütfen başka bir görsel seç.');
+    } finally {
+      setPhotoProcessing(false);
+    }
+  };
+
+  const handlePhotoInputChange = (event) => {
+    handleProfilePhotoFile(event.target.files?.[0]);
+    event.target.value = '';
+  };
+
+  const handlePhotoDrop = (event) => {
+    event.preventDefault();
+    setDraggingPhoto(false);
+    handleProfilePhotoFile(event.dataTransfer.files?.[0]);
   };
 
   const submit = async (event) => {
@@ -45,6 +211,9 @@ const AccountSettingsPanel = () => {
       return;
     }
 
+    const previousAvatar = normalizeProfileAvatarFields(userProfile || {});
+    const nextAvatar = normalizeProfileAvatarFields(form);
+
     setSaving(true);
     try {
       const previousEmail = user?.email;
@@ -52,17 +221,36 @@ const AccountSettingsPanel = () => {
         displayName: form.displayName,
         email: form.email,
         profileNote: form.profileNote,
+        avatarType: nextAvatar.avatarType,
+        avatarId: nextAvatar.avatarId,
+        avatarUrl: nextAvatar.avatarUrl,
+        avatar: nextAvatar.avatar,
         password: form.password,
         currentPassword: form.currentPassword,
       });
+      const savedAvatar = normalizeProfileAvatarFields(nextProfile);
 
       updateRememberedAccount(previousEmail, nextProfile);
-      setForm(current => ({ ...current, password: '', passwordConfirm: '', currentPassword: '' }));
+      setProfileUpdates({
+        displayName: nextProfile.displayName || '',
+        email: nextProfile.email || '',
+        profileNote: nextProfile.profileNote || '',
+        ...savedAvatar,
+      });
+      setSecurityForm(emptySecurityForm);
       setMessageType('success');
-      setMessage('Hesap bilgileri güncellendi.');
+      setMessage(
+        sameProfileAvatar(previousAvatar, savedAvatar)
+          ? 'Hesap bilgileri güncellendi.'
+          : 'Profil görseli güncellendi.',
+      );
     } catch (error) {
       setMessageType('error');
-      setMessage(getFirebaseMessage(error));
+      setMessage(
+        sameProfileAvatar(previousAvatar, nextAvatar)
+          ? getFirebaseMessage(error)
+          : 'Profil görseli güncellenemedi.',
+      );
     } finally {
       setSaving(false);
     }
@@ -74,6 +262,103 @@ const AccountSettingsPanel = () => {
         <p className="eyebrow">Hesap Ayarları</p>
         <h3>Profilini düzenle</h3>
       </div>
+
+      <section className="profile-avatar-section" aria-labelledby="profile-avatar-title">
+        <div className="profile-avatar-head">
+          <UserAvatar
+            avatarType={selectedAvatar.avatarType}
+            avatarId={selectedAvatar.avatarId}
+            avatarUrl={selectedAvatar.avatarUrl}
+            className="profile-avatar-preview"
+            label="Seçili profil görseli"
+          />
+          <div>
+            <h4 id="profile-avatar-title">Profil Görseli</h4>
+            <p>Hazır avatar seçebilir veya kendi profil fotoğrafını yükleyebilirsin.</p>
+          </div>
+        </div>
+
+        <div className="profile-visual-layout">
+          <div className="profile-visual-group">
+            <div className="profile-visual-group-head">
+              <strong>Hazır Avatarlar</strong>
+              <span>{imageSelected ? 'Fotoğraf aktif' : 'Avatar aktif'}</span>
+            </div>
+
+            <div className="profile-avatar-grid" role="radiogroup" aria-label="Hazır avatarlar">
+              {PROFILE_AVATARS.map(avatarOption => {
+                const selected = selectedPresetId === avatarOption.id;
+
+                return (
+                  <button
+                    key={avatarOption.id}
+                    className={selected ? 'avatar-option selected' : 'avatar-option'}
+                    type="button"
+                    role="radio"
+                    aria-checked={selected}
+                    aria-label={`${avatarOption.label} avatarını seç`}
+                    onClick={() => selectPresetAvatar(avatarOption.id)}
+                  >
+                    <UserAvatar
+                      avatarType="preset"
+                      avatarId={avatarOption.id}
+                      decorative
+                    />
+                    <span className="avatar-option-label">{avatarOption.label}</span>
+                    {selected && <span className="avatar-check" aria-hidden="true">✓</span>}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="profile-visual-group">
+            <div className="profile-visual-group-head">
+              <strong>Fotoğraf Yükle</strong>
+              <span>{imageSelected ? 'Seçildi' : 'Opsiyonel'}</span>
+            </div>
+
+            <label
+              className={[
+                'profile-upload-dropzone',
+                imageSelected ? 'selected' : '',
+                draggingPhoto ? 'dragging' : '',
+              ].filter(Boolean).join(' ')}
+              onDragOver={(event) => {
+                event.preventDefault();
+                setDraggingPhoto(true);
+              }}
+              onDragLeave={() => setDraggingPhoto(false)}
+              onDrop={handlePhotoDrop}
+            >
+              <input
+                className="profile-photo-input"
+                type="file"
+                accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
+                onChange={handlePhotoInputChange}
+                disabled={saving || photoProcessing}
+              />
+              <UserAvatar
+                avatarType={selectedAvatar.avatarType}
+                avatarId={selectedAvatar.avatarId || 'user-slate'}
+                avatarUrl={selectedAvatar.avatarUrl}
+                className="profile-upload-preview"
+                decorative
+              />
+              <span className="profile-upload-copy">
+                <strong>
+                  {photoProcessing
+                    ? 'Fotoğraf hazırlanıyor...'
+                    : imageSelected
+                      ? 'Fotoğraf seçildi'
+                      : 'Profil Fotoğrafı Yükle'}
+                </strong>
+                <small>JPG, PNG veya WEBP; 2 MB'a kadar.</small>
+              </span>
+            </label>
+          </div>
+        </div>
+      </section>
 
       <label>
         Kullanıcı adı
@@ -176,7 +461,7 @@ const AccountSettingsPanel = () => {
 
       {message && <p className={`settings-message ${messageType}`}>{message}</p>}
 
-      <button className="settings-save" type="submit" disabled={saving}>
+      <button className="settings-save" type="submit" disabled={saving || photoProcessing}>
         {saving ? 'Kaydediliyor...' : 'Değişiklikleri Kaydet'}
       </button>
     </form>

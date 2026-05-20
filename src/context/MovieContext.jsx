@@ -2,7 +2,18 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useReducer } from 'react';
 import * as firebaseService from '../services/firebase';
 import * as storageService from '../services/storage';
-import { getMediaKey, isTvShow, normalizeMediaItem } from '../utils/media';
+import {
+  getMediaKey,
+  getNextEpisodeProgress,
+  isTvShow,
+  normalizeMediaItem,
+  normalizeTvTracking,
+} from '../utils/media';
+import {
+  DEFAULT_PROFILE_AVATAR,
+  hasProfileAvatarUpdate,
+  normalizeProfileAvatarFields,
+} from '../constants/profileAvatars';
 
 export const MovieContext = createContext();
 
@@ -29,6 +40,7 @@ const initialState = {
   filter: 'all', // 'all', 'watched', 'watchlist'
   searchResults: [],
   loading: false,
+  moviesReady: false,
   error: null,
   user: null,
   userProfile: null,
@@ -99,7 +111,7 @@ const findMedia = (movies, media) => movies.some(movie => getMediaKey(movie) ===
 const movieReducer = (state, action) => {
   switch (action.type) {
     case 'SET_MOVIES':
-      return { ...state, movies: action.payload.map(normalizeMediaItem), error: null };
+      return { ...state, movies: action.payload.map(normalizeMediaItem), moviesReady: true, error: null };
     
     case 'ADD_MOVIE':
       if (findMedia(state.movies, action.payload)) {
@@ -117,7 +129,7 @@ const movieReducer = (state, action) => {
       return {
         ...state,
         movies: state.movies.map(m =>
-          m.docId === action.payload.docId ? { ...m, ...action.payload } : m
+          m.docId === action.payload.docId ? normalizeMediaItem({ ...m, ...action.payload }) : m
         ),
       };
     
@@ -137,7 +149,12 @@ const movieReducer = (state, action) => {
       return { ...state, user: action.payload };
 
     case 'SET_USER_PROFILE':
-      return { ...state, userProfile: action.payload };
+      return {
+        ...state,
+        userProfile: action.payload
+          ? { ...action.payload, ...normalizeProfileAvatarFields(action.payload) }
+          : null,
+      };
 
     case 'SET_AUTH_READY':
       return { ...state, authReady: action.payload };
@@ -165,7 +182,7 @@ export const MovieProvider = ({ children }) => {
     dispatch({ type: 'SET_LOADING', payload: true });
     try {
       if (!useFirebase) {
-        dispatch({ type: 'SET_MOVIES', payload: [] });
+        dispatch({ type: 'SET_MOVIES', payload: storageService.getMoviesFromLocal() });
         return;
       }
 
@@ -208,6 +225,10 @@ export const MovieProvider = ({ children }) => {
             email: user.email,
             displayName: user.displayName || user.email?.split('@')[0] || 'Kullanıcı',
             profileNote: '',
+            avatarType: 'preset',
+            avatarId: DEFAULT_PROFILE_AVATAR,
+            avatarUrl: null,
+            avatar: DEFAULT_PROFILE_AVATAR,
           },
         });
 
@@ -229,10 +250,10 @@ export const MovieProvider = ({ children }) => {
 
   // Sync local storage
   useEffect(() => {
-    if (state.user) {
-      storageService.saveMoviesToLocal(state.movies, state.user.uid);
+    if (state.authReady && state.moviesReady) {
+      storageService.saveMoviesToLocal(state.movies, state.user?.uid);
     }
-  }, [state.movies, state.user]);
+  }, [state.authReady, state.movies, state.moviesReady, state.user]);
 
   const addMovie = useCallback(async (movieData) => {
     const normalizedInput = normalizeMediaItem(movieData);
@@ -246,8 +267,9 @@ export const MovieProvider = ({ children }) => {
       const now = new Date();
       const mediaType = normalizedInput.mediaType;
       const watchStatus = normalizedInput.watchStatus;
+      const tvTracking = isTvShow(normalizedInput) ? normalizeTvTracking(normalizedInput) : null;
       const isWatched = isTvShow(normalizedInput)
-        ? watchStatus === 'completed'
+        ? tvTracking.watchStatus === 'completed'
         : Boolean(normalizedInput.watched) || watchStatus === 'watched';
       const isFavorite = Boolean(normalizedInput.favorite);
       const createdAt = movieData.createdAt || movieData.created_at || now;
@@ -281,14 +303,16 @@ export const MovieProvider = ({ children }) => {
         watched: isWatched,
         favorite: isFavorite,
         isFavorite,
-        watchStatus,
+        watchStatus: tvTracking?.watchStatus || watchStatus,
         reaction: normalizedInput.reaction || null,
         rating: normalizedInput.rating || normalizedInput.voteAverage || 0,
         voteAverage: normalizedInput.voteAverage || normalizedInput.rating || 0,
         overview: normalizedInput.overview || '',
-        currentSeason: normalizedInput.currentSeason,
-        currentEpisode: normalizedInput.currentEpisode,
-        totalWatchedEpisodes: normalizedInput.totalWatchedEpisodes,
+        currentSeason: tvTracking?.currentSeason || normalizedInput.currentSeason,
+        currentEpisode: tvTracking?.currentEpisode || normalizedInput.currentEpisode,
+        watchedEpisodes: tvTracking?.watchedEpisodes || normalizedInput.watchedEpisodes,
+        totalWatchedEpisodes: tvTracking?.totalWatchedEpisodes || normalizedInput.totalWatchedEpisodes,
+        progressPercent: tvTracking?.progressPercent || normalizedInput.progressPercent,
         totalSeasons: normalizedInput.totalSeasons,
         totalEpisodes: normalizedInput.totalEpisodes,
         seasonEpisodeCounts: normalizedInput.seasonEpisodeCounts,
@@ -424,13 +448,17 @@ export const MovieProvider = ({ children }) => {
     try {
       const now = new Date();
       const movie = state.movies.find(m => (m.docId || m.id) === docId);
-      const nextStatus = progressUpdates.watchStatus || movie?.watchStatus || 'watchlist';
+      const tvShow = isTvShow(movie);
+      const tvTracking = tvShow ? normalizeTvTracking(movie, progressUpdates) : null;
+      const nextStatus = tvTracking?.watchStatus || progressUpdates.watchStatus || movie?.watchStatus || 'watchlist';
       const completed = nextStatus === 'completed';
       const updates = {
         ...progressUpdates,
-        currentSeason: Number(progressUpdates.currentSeason ?? movie?.currentSeason) || 1,
-        currentEpisode: Number(progressUpdates.currentEpisode ?? movie?.currentEpisode) || 0,
-        totalWatchedEpisodes: Number(progressUpdates.totalWatchedEpisodes ?? movie?.totalWatchedEpisodes) || 0,
+        currentSeason: tvTracking?.currentSeason || Number(progressUpdates.currentSeason ?? movie?.currentSeason) || 1,
+        currentEpisode: tvTracking?.currentEpisode || Number(progressUpdates.currentEpisode ?? movie?.currentEpisode) || 0,
+        watchedEpisodes: tvTracking?.watchedEpisodes || Number(progressUpdates.watchedEpisodes ?? movie?.watchedEpisodes) || 0,
+        totalWatchedEpisodes: tvTracking?.totalWatchedEpisodes || Number(progressUpdates.totalWatchedEpisodes ?? movie?.totalWatchedEpisodes) || 0,
+        progressPercent: tvTracking?.progressPercent || Number(progressUpdates.progressPercent ?? movie?.progressPercent) || 0,
         watchStatus: nextStatus,
         watched: completed,
         updatedAt: now,
@@ -440,6 +468,9 @@ export const MovieProvider = ({ children }) => {
       if (completed && getDateTime(movie?.watchedAt || movie?.watched_at) === 0) {
         updates.watchedAt = now;
         updates.watched_at = now;
+      } else if (!completed && tvShow) {
+        updates.watchedAt = null;
+        updates.watched_at = null;
       }
 
       if (state.user) {
@@ -464,37 +495,18 @@ export const MovieProvider = ({ children }) => {
     if (!movie || !isTvShow(movie)) return;
 
     const currentSeason = Number(movie.currentSeason) || 1;
-    const currentEpisode = Number(movie.currentEpisode) || 0;
-    const seasonEpisodeCount = Number(movie.seasonEpisodeCounts?.[currentSeason]) || 0;
-    const totalSeasons = Number(movie.totalSeasons) || currentSeason;
-    const totalEpisodes = Number(movie.totalEpisodes) || 0;
-    const totalWatchedEpisodes = Math.min(
-      totalEpisodes || Number.MAX_SAFE_INTEGER,
-      (Number(movie.totalWatchedEpisodes) || 0) + 1,
-    );
-    let nextSeason = currentSeason;
-    let nextEpisode = currentEpisode + 1;
-    let nextStatus = 'watching';
-
-    if (seasonEpisodeCount > 0 && nextEpisode > seasonEpisodeCount) {
-      if (currentSeason >= totalSeasons) {
-        nextEpisode = seasonEpisodeCount;
-        nextStatus = 'completed';
-      } else {
-        nextSeason = currentSeason + 1;
-        nextEpisode = 1;
-      }
-    }
-
-    if (totalEpisodes > 0 && totalWatchedEpisodes >= totalEpisodes) {
-      nextStatus = 'completed';
-    }
+    const nextTracking = getNextEpisodeProgress({
+      ...movie,
+      currentSeason,
+    });
 
     await updateMediaProgress(docId, {
-      currentSeason: nextSeason,
-      currentEpisode: nextEpisode,
-      totalWatchedEpisodes,
-      watchStatus: nextStatus,
+      currentSeason: nextTracking.currentSeason,
+      currentEpisode: nextTracking.currentEpisode,
+      watchedEpisodes: nextTracking.watchedEpisodes,
+      totalWatchedEpisodes: nextTracking.totalWatchedEpisodes,
+      progressPercent: nextTracking.progressPercent,
+      watchStatus: nextTracking.watchStatus,
     });
   }, [state.movies, updateMediaProgress]);
 
@@ -516,11 +528,27 @@ export const MovieProvider = ({ children }) => {
   }, []);
 
   const updateAccountSettings = useCallback(async (updates) => {
-    const nextProfile = await firebaseService.updateAccountSettings(updates);
-    dispatch({ type: 'SET_USER', payload: firebaseService.auth.currentUser });
+    if (firebaseService.auth.currentUser) {
+      const nextProfile = await firebaseService.updateAccountSettings(updates);
+      dispatch({ type: 'SET_USER', payload: firebaseService.auth.currentUser });
+      dispatch({ type: 'SET_USER_PROFILE', payload: nextProfile });
+      return nextProfile;
+    }
+
+    const avatarFields = normalizeProfileAvatarFields(
+      hasProfileAvatarUpdate(updates) ? updates : state.userProfile || {},
+    );
+    const nextProfile = storageService.saveUserProfileToLocal({
+      uid: state.user?.uid || 'guest',
+      email: updates.email?.trim().toLowerCase() || state.userProfile?.email || '',
+      displayName: updates.displayName?.trim() || state.userProfile?.displayName || 'Kullanıcı',
+      profileNote: updates.profileNote?.trim() || '',
+      ...avatarFields,
+    }, state.user?.uid);
+
     dispatch({ type: 'SET_USER_PROFILE', payload: nextProfile });
     return nextProfile;
-  }, []);
+  }, [state.user, state.userProfile]);
 
   const getFilteredMovies = () => {
     switch (state.filter) {

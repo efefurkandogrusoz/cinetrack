@@ -6,11 +6,11 @@ import '../styles/components/MovieList.css';
 
 const statusOptions = [
   { id: 'all', label: 'Tüm durumlar' },
-  { id: 'watchlist', label: 'İzlenecek' },
-  { id: 'watching', label: 'İzleniyor' },
-  { id: 'completed', label: 'Tamamlandı' },
+  { id: 'watchlist', label: 'İzlemeyi planlıyorum' },
+  { id: 'watching', label: 'Devam ediyorum' },
+  { id: 'completed', label: 'Tamamladım' },
   { id: 'watched', label: 'İzlendi' },
-  { id: 'dropped', label: 'Bırakıldı' },
+  { id: 'dropped', label: 'Bıraktım' },
 ];
 
 const MovieList = ({ movies = null, listId }) => {

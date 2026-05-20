@@ -104,6 +104,15 @@ const fetchLocalizedTmdb = async (path, params = {}) => {
 
 const getGenreMap = (mediaType) => (mediaType === 'tv' ? TV_GENRE_MAP : MOVIE_GENRE_MAP);
 
+const getFormattedMediaKey = (mediaType, id) => `${mediaType}:${id}`;
+
+const isExcludedMedia = (media, excludedValues = []) => {
+  const excluded = new Set(Array.from(excludedValues, value => String(value)));
+  const mediaType = media.mediaType || media.media_type || 'movie';
+
+  return excluded.has(String(media.id)) || excluded.has(getFormattedMediaKey(mediaType, media.id));
+};
+
 const hasText = (value) => typeof value === 'string' && value.trim().length > 0;
 
 const getNoOverviewMessage = (mediaType) => (
@@ -213,6 +222,7 @@ const formatMedia = (item, fallbackMediaType = 'movie') => {
   return {
     id: item.id,
     mediaType,
+    media_type: mediaType,
     title,
     name: title,
     poster_path: item.poster_path,
@@ -238,16 +248,20 @@ const formatMedia = (item, fallbackMediaType = 'movie') => {
   };
 };
 
-const formatMediaList = (items = [], fallbackMediaType = 'movie') => (
+const formatMediaList = (items = [], fallbackMediaType = 'movie', options = {}) => {
+  const { requirePoster = true } = options;
+
+  return (
   items
     .filter(item => {
       const mediaType = item.media_type || fallbackMediaType;
       const title = mediaType === 'tv' ? item.name || item.original_name : item.title || item.original_title;
-      return item.poster_path && item.id && title && (mediaType === 'movie' || mediaType === 'tv');
+      return (!requirePoster || item.poster_path) && item.id && title && (mediaType === 'movie' || mediaType === 'tv');
     })
     .map(item => formatMedia(item, item.media_type || fallbackMediaType))
     .slice(0, 20)
-);
+  );
+};
 
 const sortMixedMedia = (items, sortBy) => {
   if (sortBy === 'vote_average.desc') {
@@ -351,8 +365,44 @@ export const discoverMoviesByGenres = async (genreIds = [], excludedMovieIds = [
 
     const excluded = new Set(excludedMovieIds);
 
-    return formatMediaList(mergeLocalizedResults(data?.results || [], fallbackData?.results || [], 'movie'), 'movie')
-      .filter(movie => !excluded.has(movie.id))
+    return formatMediaList(
+      mergeLocalizedResults(data?.results || [], fallbackData?.results || [], 'movie'),
+      'movie',
+      { requirePoster: false },
+    )
+      .filter(movie => !isExcludedMedia(movie, excluded))
+      .slice(0, 8);
+  } catch (error) {
+    console.error('Error fetching recommendations:', error);
+    return [];
+  }
+};
+
+export const discoverTvShowsByGenres = async (genreIds = [], excludedShowIds = []) => {
+  const cleanedGenreIds = genreIds.filter(Boolean).slice(0, 3);
+  const hasGenreSignal = cleanedGenreIds.length > 0;
+
+  try {
+    const endpoint = hasGenreSignal ? '/discover/tv' : '/tv/popular';
+    const params = {
+      include_adult: 'false',
+    };
+
+    if (hasGenreSignal) {
+      params.sort_by = 'vote_average.desc';
+      params['vote_count.gte'] = '150';
+      params.with_genres = cleanedGenreIds.join(',');
+    }
+
+    const { data, fallbackData } = await fetchLocalizedTmdb(endpoint, params);
+    const excluded = new Set(excludedShowIds);
+
+    return formatMediaList(
+      mergeLocalizedResults(data?.results || [], fallbackData?.results || [], 'tv'),
+      'tv',
+      { requirePoster: false },
+    )
+      .filter(show => !isExcludedMedia(show, excluded))
       .slice(0, 8);
   } catch (error) {
     console.error('Error fetching recommendations:', error);
@@ -511,6 +561,7 @@ export default {
   getTvShowFullDetails,
   getMediaFullDetails,
   discoverMoviesByGenres,
+  discoverTvShowsByGenres,
   getMovieCatalog,
   getPopularMovies,
   getPopularTvShows,

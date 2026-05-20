@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useMovies } from '../context/MovieContext';
-import { getMediaKey } from '../utils/media';
+import { getMediaKey, getTvProgress } from '../utils/media';
 import MovieDetailsModal from './MovieDetailsModal';
 import '../styles/components/ContinueWatching.css';
 
@@ -24,7 +24,10 @@ const ContinueWatching = () => {
       </div>
 
       <div className="continue-grid">
-        {shows.map(show => (
+        {shows.map(show => {
+          const progress = getTvProgress(show);
+
+          return (
           <article className="continue-card" key={show.docId || getMediaKey(show)}>
             <button className="continue-main" type="button" onClick={() => setSelectedShow(show)}>
               <span className="continue-poster">
@@ -37,6 +40,10 @@ const ContinueWatching = () => {
                   {show.totalSeasons ? `${show.totalSeasons} sezon` : 'Sezon bilgisi yok'}
                   {show.totalEpisodes ? `, ${show.totalEpisodes} bölüm` : ''}
                 </small>
+                <span className="continue-progress">
+                  <i style={{ width: `${progress.progressPercent}%` }} />
+                </span>
+                <em>%{progress.progressPercent} tamamlandı</em>
               </span>
             </button>
 
@@ -48,7 +55,8 @@ const ContinueWatching = () => {
               Sonraki Bölüm
             </button>
           </article>
-        ))}
+          );
+        })}
       </div>
 
       {selectedShow && <MovieDetailsModal movie={selectedShow} onClose={() => setSelectedShow(null)} />}

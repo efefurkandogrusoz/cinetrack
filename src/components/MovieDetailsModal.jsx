@@ -6,18 +6,26 @@ import {
   getMediaKey,
   getMediaType,
   getMediaTypeLabel,
+  getEpisodeCountForSeason,
+  getTvProgress,
+  getNextEpisodeProgress,
   getWatchStatus,
   getWatchStatusLabel,
   isTvShow,
+  normalizeTvTracking,
 } from '../utils/media';
 import '../styles/components/MovieDetailsModal.css';
 
 const tvStatusOptions = [
-  { value: 'watchlist', label: 'İzlenecek' },
-  { value: 'watching', label: 'İzleniyor' },
-  { value: 'completed', label: 'Tamamlandı' },
-  { value: 'dropped', label: 'Bırakıldı' },
+  { value: 'watching', label: 'Devam ediyorum' },
+  { value: 'completed', label: 'Tamamladım' },
+  { value: 'dropped', label: 'Bıraktım' },
+  { value: 'watchlist', label: 'İzlemeyi planlıyorum' },
 ];
+
+const buildNumberOptions = (count) => (
+  Array.from({ length: Math.max(1, Number(count) || 1) }, (_, index) => index + 1)
+);
 
 const formatProductionStatus = (status) => {
   if (!status) return null;
@@ -29,7 +37,6 @@ const formatProductionStatus = (status) => {
 const MovieDetailsModal = ({ movie, onClose }) => {
   const {
     addMovie,
-    advanceEpisode,
     movies,
     setReaction,
     toggleFavorite,
@@ -65,14 +72,21 @@ const MovieDetailsModal = ({ movie, onClose }) => {
   const mediaLabel = getMediaTypeLabel(activeMovie);
   const watchStatus = getWatchStatus(activeMovie);
   const [trackingDraft, setTrackingDraft] = useState(null);
-  const tracking = trackingDraft || {
-    currentSeason: activeMovie?.currentSeason || 1,
-    currentEpisode: activeMovie?.currentEpisode || 0,
-    watchStatus,
-  };
+  const tracking = tvShow
+    ? normalizeTvTracking(activeMovie, trackingDraft || {})
+    : {
+      currentSeason: activeMovie?.currentSeason || 1,
+      currentEpisode: activeMovie?.currentEpisode || 0,
+      watchStatus,
+    };
+  const episodeLimit = tvShow ? getEpisodeCountForSeason({ ...activeMovie, ...tracking }, tracking.currentSeason) : 0;
+  const seasonOptionCount = tvShow ? Math.max(Number(activeMovie.totalSeasons) || 0, tracking.currentSeason, 1) : 1;
+  const episodeOptionCount = tvShow ? Math.max(episodeLimit, tracking.currentEpisode, 1) : 1;
+  const trackingProgress = tvShow ? getTvProgress({ ...activeMovie, ...tracking }) : null;
+  const trackingCompleted = tvShow && tracking.watchStatus === 'completed';
 
   const updateTrackingDraft = (updates) => {
-    setTrackingDraft(current => ({
+    setTrackingDraft(current => normalizeTvTracking(activeMovie, {
       ...(current || tracking),
       ...updates,
     }));
@@ -125,8 +139,11 @@ const MovieDetailsModal = ({ movie, onClose }) => {
 
   const saveTvTracking = async () => {
     const updates = {
-      currentSeason: Number(tracking.currentSeason) || 1,
-      currentEpisode: Number(tracking.currentEpisode) || 0,
+      currentSeason: tracking.currentSeason,
+      currentEpisode: tracking.currentEpisode,
+      watchedEpisodes: tracking.watchedEpisodes,
+      totalWatchedEpisodes: tracking.totalWatchedEpisodes,
+      progressPercent: tracking.progressPercent,
       watchStatus: tracking.watchStatus,
     };
 
@@ -141,12 +158,16 @@ const MovieDetailsModal = ({ movie, onClose }) => {
   };
 
   const setTvStatus = async (nextStatus) => {
-    const updates = {
+    const nextTracking = normalizeTvTracking(activeMovie, {
+      ...tracking,
       watchStatus: nextStatus,
-      currentSeason: Number(tracking.currentSeason) || 1,
       currentEpisode: nextStatus === 'watching'
         ? Math.max(1, Number(tracking.currentEpisode) || 1)
-        : Number(tracking.currentEpisode) || 0,
+        : tracking.currentEpisode,
+    });
+    const updates = {
+      ...nextTracking,
+      watchStatus: nextStatus,
       watched: nextStatus === 'completed',
     };
 
@@ -193,16 +214,16 @@ const MovieDetailsModal = ({ movie, onClose }) => {
   };
 
   const handleNextEpisode = async () => {
+    const nextTracking = getNextEpisodeProgress({ ...activeMovie, ...tracking });
+
     if (listedMovie) {
-      await advanceEpisode(docId);
+      await updateMediaProgress(docId, nextTracking);
       return;
     }
 
     await addToList({
       watchStatus: 'watching',
-      currentSeason: Number(tracking.currentSeason) || 1,
-      currentEpisode: Math.max(1, (Number(tracking.currentEpisode) || 0) + 1),
-      totalWatchedEpisodes: 1,
+      ...nextTracking,
     });
   };
 
@@ -247,10 +268,10 @@ const MovieDetailsModal = ({ movie, onClose }) => {
               {tvShow ? (
                 <>
                   <button type="button" onClick={() => setTvStatus('watching')}>
-                    İzleniyor
+                    Devam ediyorum
                   </button>
                   <button type="button" onClick={handleWatch}>
-                    {watchStatus === 'completed' ? 'Tamamlandı' : 'Tamamla'}
+                    {watchStatus === 'completed' ? 'Tamamladım' : 'Tamamladım'}
                   </button>
                 </>
               ) : (
@@ -279,30 +300,54 @@ const MovieDetailsModal = ({ movie, onClose }) => {
             <div className="movie-modal-panel tv-progress-panel">
               <h3>İzleme Durumum</h3>
               <div className="tv-progress-summary">
-                <span>Sezon: <strong>{activeMovie.currentSeason || tracking.currentSeason}</strong></span>
-                <span>Bölüm: <strong>{activeMovie.currentEpisode || tracking.currentEpisode}</strong></span>
-                <span>Durum: <strong>{getWatchStatusLabel(activeMovie)}</strong></span>
+                <span>Sezon: <strong>{tracking.currentSeason}</strong></span>
+                <span>Bölüm: <strong>{tracking.currentEpisode}</strong></span>
+                <span>Durum: <strong>{getWatchStatusLabel(tracking.watchStatus)}</strong></span>
+                {activeMovie.totalEpisodes > 0 && (
+                  <span>İzlenen: <strong>{trackingProgress.watchedEpisodes}/{activeMovie.totalEpisodes}</strong></span>
+                )}
               </div>
+              <div className="tv-progress-meter" aria-label={`%${trackingProgress.progressPercent} tamamlandı`}>
+                <i style={{ width: `${trackingProgress.progressPercent}%` }} />
+              </div>
+              <p className="tv-progress-percent">%{trackingProgress.progressPercent} tamamlandı</p>
               <div className="tv-progress-form">
                 <label>
                   <span>Sezon</span>
-                  <input
-                    type="number"
-                    min="1"
-                    max={activeMovie.totalSeasons || undefined}
+                  <select
                     value={tracking.currentSeason}
-                    onChange={event => updateTrackingDraft({ currentSeason: event.target.value })}
-                  />
+                    onChange={event => updateTrackingDraft({ currentSeason: Number(event.target.value) })}
+                  >
+                    {buildNumberOptions(seasonOptionCount).map(season => (
+                      <option key={season} value={season}>Sezon {season}</option>
+                    ))}
+                  </select>
                 </label>
-                <label>
-                  <span>Bölüm</span>
-                  <input
-                    type="number"
-                    min="0"
-                    value={tracking.currentEpisode}
-                    onChange={event => updateTrackingDraft({ currentEpisode: event.target.value })}
-                  />
-                </label>
+                <div className="tv-episode-stepper">
+                  <span className="tv-stepper-label">
+                    Bölüm
+                    <small>{episodeLimit > 0 ? `${episodeLimit} bölüm` : `${episodeOptionCount}+ bölüm`}</small>
+                  </span>
+                  <div>
+                    <button
+                      type="button"
+                      onClick={() => updateTrackingDraft({ currentEpisode: tracking.currentEpisode - 1 })}
+                      disabled={tracking.currentEpisode <= 1}
+                      aria-label="Bölümü azalt"
+                    >
+                      -
+                    </button>
+                    <strong>{tracking.currentEpisode}</strong>
+                    <button
+                      type="button"
+                      onClick={() => updateTrackingDraft({ currentEpisode: tracking.currentEpisode + 1 })}
+                      disabled={episodeLimit > 0 && tracking.currentEpisode >= episodeLimit}
+                      aria-label="Bölümü artır"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
                 <label>
                   <span>Durum</span>
                   <select
@@ -314,10 +359,12 @@ const MovieDetailsModal = ({ movie, onClose }) => {
                     ))}
                   </select>
                 </label>
-              </div>
-              <div className="tv-progress-actions">
-                <button type="button" onClick={saveTvTracking}>Kaydet</button>
-                <button type="button" onClick={handleNextEpisode}>Sonraki Bölüm</button>
+                <div className="tv-progress-actions">
+                  <button type="button" onClick={saveTvTracking}>Kaydet</button>
+                  <button type="button" onClick={handleNextEpisode} disabled={trackingCompleted}>
+                    {trackingCompleted ? 'Tamamlandı' : 'Sonraki Bölüm'}
+                  </button>
+                </div>
               </div>
             </div>
           )}

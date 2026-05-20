@@ -150,7 +150,11 @@
 
 .card-status {
   margin-left: auto;
+  max-width: 52%;
+  overflow: hidden;
   padding: 0 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .card-status.watchlist {
@@ -318,6 +322,11 @@
   -webkit-line-clamp: 3;
 }
 
+.card-tv-tracking {
+  display: grid;
+  gap: 7px;
+}
+
 .card-progress {
   display: flex;
   flex-wrap: wrap;
@@ -331,6 +340,29 @@
   border-radius: 999px;
   background: rgba(var(--primary-rgb), 0.09);
   color: #f0f0f0;
+  font-size: 11px;
+  font-weight: 850;
+}
+
+.card-progress-meter {
+  overflow: hidden;
+  width: 100%;
+  height: 7px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.09);
+}
+
+.card-progress-meter i {
+  display: block;
+  width: 0;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--primary-color), #ff6b72);
+  transition: width 0.25s ease;
+}
+
+.card-tv-tracking small {
+  color: #d6d6d6;
   font-size: 11px;
   font-weight: 850;
 }
@@ -385,7 +417,7 @@
 }
 
 .action-btn:disabled {
-  cursor: wait;
+  cursor: not-allowed;
   opacity: 0.68;
 }
 

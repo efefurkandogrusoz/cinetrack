@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useMovies } from '../context/MovieContext';
 import { getMediaTrailer } from '../services/tmdb';
-import { getMediaTypeLabel, getWatchStatus, getWatchStatusLabel, isTvShow } from '../utils/media';
+import { getMediaTypeLabel, getTvProgress, getWatchStatus, getWatchStatusLabel, isTvShow } from '../utils/media';
 import MovieDetailsModal from './MovieDetailsModal';
 import '../styles/components/MovieCard.css';
 
@@ -18,6 +18,13 @@ const MovieCard = ({ movie }) => {
   const mediaLabel = getMediaTypeLabel(movie);
   const watchStatus = getWatchStatus(movie);
   const statusLabel = getWatchStatusLabel(movie);
+  const tvProgress = tvShow ? getTvProgress(movie) : null;
+  const completedTvShow = tvShow && watchStatus === 'completed';
+  const tvWatchButtonLabel = watchStatus === 'watching'
+    ? 'Devam ediyorum'
+    : watchStatus === 'completed'
+      ? 'Tamamladım'
+      : 'Devam Et';
 
   const stopAction = (event) => event.stopPropagation();
 
@@ -165,10 +172,17 @@ const MovieCard = ({ movie }) => {
           )}
 
           {tvShow && (
-            <div className="card-progress">
-              <span>S{movie.currentSeason || 1}</span>
-              <span>B{movie.currentEpisode || 0}</span>
-              {movie.totalEpisodes > 0 && <span>{movie.totalWatchedEpisodes || 0}/{movie.totalEpisodes} bölüm</span>}
+            <div className="card-tv-tracking">
+              <div className="card-progress">
+                <span>S{movie.currentSeason || 1}</span>
+                <span>B{movie.currentEpisode || 1}</span>
+                {movie.totalEpisodes > 0 && <span>{tvProgress.watchedEpisodes}/{movie.totalEpisodes} bölüm</span>}
+                <span>%{tvProgress.progressPercent}</span>
+              </div>
+              <div className="card-progress-meter" aria-label={`%${tvProgress.progressPercent} tamamlandı`}>
+                <i style={{ width: `${tvProgress.progressPercent}%` }} />
+              </div>
+              <small>%{tvProgress.progressPercent} tamamlandı</small>
             </div>
           )}
 
@@ -211,15 +225,16 @@ const MovieCard = ({ movie }) => {
           type="button"
         >
           <span className="btn-icon" aria-hidden="true">✓</span>
-          <span>{tvShow ? (watchStatus === 'watching' ? 'İzleniyor' : 'İzle') : (movie.watched ? 'İzlendi' : 'İzle')}</span>
+          <span>{tvShow ? tvWatchButtonLabel : (movie.watched ? 'İzlendi' : 'İzle')}</span>
         </button>
         {tvShow && (
           <button className="action-btn episode-btn" onClick={event => {
             stopAction(event);
+            if (completedTvShow) return;
             advanceEpisode(docId);
-          }} type="button">
+          }} type="button" disabled={completedTvShow}>
             <span className="btn-icon" aria-hidden="true">+</span>
-            <span>Sonraki</span>
+            <span>{completedTvShow ? 'Tamamlandı' : 'Sonraki Bölüm'}</span>
           </button>
         )}
         <button className="action-btn delete-btn" onClick={event => {

@@ -233,17 +233,52 @@
   font-size: 12px;
 }
 
+.recommendation-head p {
+  margin-top: 4px;
+  max-width: 720px;
+  color: #b8b8b8;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.recommendation-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.recommendation-tabs button {
+  min-height: 34px;
+  padding: 0 13px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #f1f1f1;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.recommendation-tabs button:hover,
+.recommendation-tabs button.active {
+  border-color: rgba(var(--primary-rgb), 0.58);
+  background: rgba(var(--primary-rgb), 0.16);
+}
+
 .recommendation-row {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
+  grid-auto-rows: 1fr;
+  align-items: stretch;
   gap: 14px;
 }
 
 .recommendation-card {
   position: relative;
   display: grid;
-  grid-template-columns: 92px minmax(0, 1fr);
+  grid-template-columns: 108px minmax(0, 1fr);
   gap: 14px;
+  height: 100%;
   min-height: 150px;
   overflow: hidden;
   padding: 12px;
@@ -292,7 +327,7 @@
 .recommendation-poster {
   position: relative;
   align-self: stretch;
-  min-height: 126px;
+  min-height: 168px;
   overflow: hidden;
   border-radius: 7px;
   background: rgba(255, 255, 255, 0.07);
@@ -311,9 +346,9 @@
   transform: scale(1.06);
 }
 
-.recommendation-poster span {
+.recommendation-rating,
+.recommendation-media-badge {
   position: absolute;
-  left: 7px;
   top: 7px;
   display: inline-flex;
   align-items: center;
@@ -328,16 +363,47 @@
   backdrop-filter: blur(10px);
 }
 
+.recommendation-rating {
+  left: 7px;
+}
+
+.recommendation-media-badge {
+  right: 7px;
+  border-color: rgba(var(--primary-rgb), 0.28);
+  background: rgba(var(--primary-rgb), 0.22);
+}
+
+.recommendation-poster-placeholder {
+  display: grid;
+  width: 100%;
+  height: 100%;
+  min-height: 126px;
+  place-items: center;
+  padding: 12px;
+  color: #d9d9d9;
+  font-size: 12px;
+  font-weight: 900;
+  text-align: center;
+}
+
 .recommendation-copy {
   position: relative;
   z-index: 1;
   display: grid;
-  align-content: start;
+  grid-template-areas:
+    "title"
+    "genres"
+    "overview"
+    "actions";
+  grid-template-rows: 42px minmax(26px, auto) minmax(36px, 1fr) auto;
+  align-content: stretch;
   gap: 8px;
+  height: 100%;
   min-width: 0;
 }
 
 .recommendation-title-line {
+  grid-area: title;
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
@@ -346,23 +412,32 @@
 }
 
 .recommendation-card h5 {
+  display: -webkit-box;
   min-width: 0;
+  overflow: hidden;
   color: #fff;
   font-size: 16px;
   line-height: 1.2;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .recommendation-title-line > span {
   flex: 0 0 auto;
+  min-width: 76px;
   color: #c9c9c9;
   font-size: 12px;
   font-weight: 900;
+  text-align: right;
 }
 
 .recommendation-genres {
+  grid-area: genres;
   display: flex;
   flex-wrap: wrap;
+  align-content: start;
   gap: 6px;
+  min-height: 26px;
 }
 
 .recommendation-genres span {
@@ -377,7 +452,9 @@
 }
 
 .recommendation-card p {
+  grid-area: overview;
   display: -webkit-box;
+  align-self: start;
   overflow: hidden;
   color: #b7b7b7;
   font-size: 12px;
@@ -386,8 +463,17 @@
   -webkit-line-clamp: 2;
 }
 
+.recommendation-actions {
+  grid-area: actions;
+  display: flex;
+  flex-wrap: wrap;
+  align-self: end;
+  gap: 8px;
+}
+
 .recommendation-card button {
   justify-self: start;
+  flex: 1 1 116px;
   min-height: 34px;
   padding: 0 11px;
   border: 0;
@@ -400,9 +486,19 @@
   transition: background 0.2s ease, transform 0.2s ease;
 }
 
+.recommendation-card button.secondary {
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  background: rgba(255, 255, 255, 0.08);
+}
+
 .recommendation-card button:hover {
   background: var(--primary-hover);
   transform: translateY(-1px);
+}
+
+.recommendation-card button.secondary:hover {
+  border-color: rgba(var(--primary-rgb), 0.42);
+  background: rgba(var(--primary-rgb), 0.16);
 }
 
 .recommendation-card button:disabled {
@@ -410,6 +506,15 @@
   color: #d9d9d9;
   cursor: not-allowed;
   transform: none;
+}
+
+.recommendation-empty {
+  padding: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.24);
+  color: #d0d0d0;
+  font-size: 13px;
 }
 
 @media (max-width: 1080px) {

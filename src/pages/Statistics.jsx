@@ -131,6 +131,11 @@ const Statistics = () => {
                   value={favoriteMovie ? favoriteMovie.title : 'Henüz yok'}
                   hint={favoriteMovie ? `TMDB ${formatMovieRating(favoriteMovie)}` : 'Favori film eklenmedi'}
                 />
+                <StatCard label="Devam edilen dizi" value={stats.watchingTvCount} hint="Devam ediyorum durumundaki diziler" />
+                <StatCard label="Tamamlanan dizi" value={stats.completedTvCount} hint="Tamamladım olarak işaretlenenler" />
+                <StatCard label="Bırakılan dizi" value={stats.droppedTvCount} hint="Bıraktım durumundaki diziler" />
+                <StatCard label="Ortalama dizi ilerleme" value={`${stats.averageTvProgress.toFixed(0)}%`} hint="Dizi ilerleme yüzdesi ortalaması" />
+                <StatCard label="İzlenen bölüm" value={stats.totalWatchedEpisodes} hint="Dizilerde toplam izlenen bölüm" />
               </section>
 
               <section className="statistics-charts" aria-label="Film grafikleri">

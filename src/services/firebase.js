@@ -79,8 +79,21 @@ const setAuthPersistence = async (rememberSession = true) => {
 const MOVIES_COLLECTION = 'movies';
 const USERS_COLLECTION = 'users';
 
+const getAuthCreatedAt = (user) => {
+  const creationTime = user?.metadata?.creationTime;
+  if (creationTime) return creationTime;
+
+  const createdAtMs = Number(user?.metadata?.createdAt);
+  if (Number.isFinite(createdAtMs) && createdAtMs > 0) {
+    return new Date(createdAtMs).toISOString();
+  }
+
+  return null;
+};
+
 const saveUserProfile = async (user, extra = {}) => {
   const displayName = extra.displayName || user.displayName || user.email?.split('@')[0] || 'Kullanıcı';
+  const createdAt = extra.createdAt ?? getAuthCreatedAt(user);
   const profileData = {
     uid: user.uid,
     email: user.email,
@@ -90,6 +103,10 @@ const saveUserProfile = async (user, extra = {}) => {
     updatedAt: serverTimestamp(),
     ...extra,
   };
+
+  if (createdAt && profileData.createdAt === undefined) {
+    profileData.createdAt = createdAt;
+  }
 
   if (hasProfileAvatarUpdate(extra)) {
     Object.assign(profileData, normalizeProfileAvatarFields(extra));
@@ -113,6 +130,13 @@ const saveUserProfileSafely = (user, extra = {}) => {
   saveUserProfile(user, extra).catch((error) => {
     console.warn('User profile could not be synced:', error);
   });
+};
+
+export const syncCurrentUserProfileMetadata = (user) => {
+  const createdAt = getAuthCreatedAt(user);
+  if (!user || !createdAt) return;
+
+  saveUserProfileSafely(user, { createdAt });
 };
 
 // Add movie to Firestore
@@ -221,6 +245,7 @@ export const loginUser = async (email, password, rememberSession = true) => {
     await setAuthPersistence(rememberSession);
     const userCredential = await signInWithEmailAndPassword(auth, email, password);
     saveUserProfileSafely(userCredential.user, {
+      createdAt: getAuthCreatedAt(userCredential.user),
       lastLoginAt: serverTimestamp(),
     });
     return userCredential.user;
@@ -371,5 +396,6 @@ export default {
   logoutUser,
   onUserStateChanged,
   getUserProfile,
+  syncCurrentUserProfileMetadata,
   updateAccountSettings,
 };

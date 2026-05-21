@@ -1,0 +1,370 @@
+/* Ana sayfa — sade, modern, göz yormayan düzen */
+
+.home-page::before {
+  background:
+    radial-gradient(ellipse 80% 50% at 50% -10%, rgba(var(--primary-rgb), 0.06), transparent 55%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.02) 0%, transparent 40%);
+  background-size: auto;
+  opacity: 1;
+}
+
+.home-layout {
+  gap: 42px;
+  padding-bottom: 24px;
+}
+
+/* ——— Sinematik Hero ——— */
+.home-hero.cinematic-hero.page-header.hero-header {
+  position: relative;
+  display: block;
+  width: 100%;
+  min-height: min(340px, 46vh);
+  overflow: hidden;
+  margin-bottom: 0;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 14px;
+  background: #0a0a0b;
+  box-shadow: 0 20px 56px rgba(0, 0, 0, 0.38);
+}
+
+.home-hero.cinematic-hero.page-header.hero-header::before,
+.home-hero.cinematic-hero.page-header.hero-header::after {
+  display: none;
+}
+
+.hero-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.hero-backdrop-image {
+  position: absolute;
+  inset: 0;
+  background-position: center 20%;
+  background-size: cover;
+  background-repeat: no-repeat;
+  transform: scale(1.04);
+  filter: blur(0);
+}
+
+.hero-backdrop-overlay {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(105deg, rgba(6, 6, 8, 0.97) 0%, rgba(8, 8, 10, 0.88) 42%, rgba(10, 10, 12, 0.52) 68%, rgba(8, 8, 10, 0.78) 100%),
+    linear-gradient(180deg, rgba(0, 0, 0, 0.35) 0%, transparent 40%, rgba(0, 0, 0, 0.55) 100%),
+    radial-gradient(ellipse 70% 80% at 85% 50%, rgba(var(--primary-rgb), 0.12), transparent 55%);
+}
+
+.hero-inner {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 320px);
+  align-items: center;
+  gap: 32px;
+  min-height: inherit;
+  padding: 40px 44px;
+}
+
+.hero-copy {
+  display: grid;
+  gap: 14px;
+  max-width: 560px;
+}
+
+.hero-brand.eyebrow {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.home-hero .hero-copy h2 {
+  margin: 0;
+  max-width: none;
+  color: #fff;
+  font-size: clamp(28px, 3.8vw, 44px);
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  line-height: 1.1;
+  text-shadow: 0 2px 24px rgba(0, 0, 0, 0.45);
+}
+
+.hero-lead {
+  margin: 0;
+  max-width: 480px;
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 15px;
+  font-weight: 400;
+  line-height: 1.55;
+}
+
+.hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.home-hero .hero-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 42px;
+  padding: 0 20px;
+  border-radius: 999px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  transition:
+    transform 0.2s ease,
+    background 0.2s ease,
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.home-hero .hero-action.primary {
+  border: 0;
+  background: var(--primary-color);
+  color: #fff;
+  box-shadow: 0 8px 28px rgba(var(--primary-rgb), 0.32);
+}
+
+.home-hero .hero-action.primary:hover {
+  background: var(--primary-hover);
+  transform: translateY(-1px);
+}
+
+.home-hero .hero-action.secondary {
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+
+.home-hero .hero-action.secondary:hover {
+  border-color: rgba(255, 255, 255, 0.34);
+  background: rgba(255, 255, 255, 0.14);
+  transform: translateY(-1px);
+}
+
+.hero-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.hero-stats li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 30px;
+  padding: 0 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(8px);
+}
+
+.hero-stats strong {
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.hero-stats span {
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+/* Sağ — tek sakin poster */
+.hero-visual {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  min-height: 240px;
+}
+
+.hero-visual-poster {
+  width: 100%;
+  max-width: 280px;
+  aspect-ratio: 2 / 3;
+  border-radius: 12px;
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
+  box-shadow:
+    0 24px 48px rgba(0, 0, 0, 0.5),
+    0 0 0 1px rgba(255, 255, 255, 0.08);
+  opacity: 0.92;
+}
+
+/* Bölüm kartları */
+.home-page .featured-home-section,
+.home-page .continue-section {
+  padding: 22px 24px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 14px;
+  background: rgba(18, 18, 20, 0.72);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.2);
+}
+
+.home-page .insights-section.insights-compact {
+  margin-top: 8px;
+}
+
+.home-page .recent-section {
+  padding: 14px 16px;
+  border-radius: 12px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.16);
+}
+
+.home-page .featured-home-section {
+  border-color: rgba(255, 255, 255, 0.08);
+  background:
+    linear-gradient(160deg, rgba(255, 255, 255, 0.04) 0%, transparent 48%),
+    rgba(16, 16, 18, 0.85);
+}
+
+.home-page .featured-home-head h3,
+.home-page .continue-head h3 {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.home-page .recent-row-head h3 {
+  font-size: 17px;
+}
+
+.home-page .featured-home-head p,
+.home-page .continue-head p,
+.home-page .recent-row-head p,
+.home-page .insights-summary p,
+.home-page .discovery-row-head p {
+  color: var(--text-muted);
+  font-size: 14px;
+  font-weight: 400;
+}
+
+.home-page .eyebrow {
+  font-weight: 600;
+}
+
+.home-page .discovery-section {
+  gap: 8px;
+  padding: 22px 24px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 14px;
+  background: rgba(16, 16, 18, 0.72);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.18);
+}
+
+.home-page .discovery-row {
+  padding: 20px 0 4px;
+  border-top-color: rgba(255, 255, 255, 0.06);
+}
+
+.home-page .discovery-row-head h3 {
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.home-page .movie-list-container {
+  padding: 22px 24px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 14px;
+  background: rgba(16, 16, 18, 0.72);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.18);
+}
+
+.home-page .movie-filter-panel {
+  border-color: rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.22);
+  box-shadow: none;
+}
+
+.home-page .empty-state,
+.home-page .recent-empty-state {
+  border-radius: 12px;
+}
+
+@media (max-width: 1024px) {
+  .hero-inner {
+    grid-template-columns: 1fr;
+    padding: 36px 32px;
+  }
+
+  .hero-visual {
+    display: none;
+  }
+
+  .hero-backdrop-overlay {
+    background:
+      linear-gradient(180deg, rgba(6, 6, 8, 0.94) 0%, rgba(8, 8, 10, 0.82) 55%, rgba(8, 8, 10, 0.9) 100%),
+      linear-gradient(90deg, rgba(6, 6, 8, 0.92) 0%, rgba(8, 8, 10, 0.75) 100%);
+  }
+}
+
+@media (max-width: 768px) {
+  .home-layout {
+    gap: 28px;
+    width: min(100vw - 32px, 1540px);
+  }
+
+  .home-hero.cinematic-hero.page-header.hero-header {
+    min-height: auto;
+    border-radius: 12px;
+  }
+
+  .hero-inner {
+    padding: 28px 22px;
+    gap: 20px;
+  }
+
+  .home-page .featured-home-section,
+  .home-page .continue-section,
+  .home-page .recent-section,
+  .home-page .discovery-section,
+  .home-page .movie-list-container {
+    padding: 18px 16px;
+  }
+
+  .home-page .insights-section.insights-compact {
+    padding: 14px;
+  }
+}
+
+@media (max-width: 520px) {
+  .hero-inner {
+    padding: 24px 18px;
+  }
+
+  .hero-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .home-hero .hero-action {
+    width: 100%;
+  }
+
+  .hero-stats {
+    gap: 6px;
+  }
+
+  .hero-stats li {
+    min-height: 28px;
+    padding: 0 10px;
+  }
+}

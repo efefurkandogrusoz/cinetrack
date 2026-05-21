@@ -26,8 +26,9 @@
 
 .discovery-row-head h3 {
   color: #fff;
-  font-size: 28px;
-  line-height: 1.08;
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.12;
 }
 
 .discovery-row-head p {
@@ -63,9 +64,9 @@
 }
 
 .discovery-controls button:hover {
-  border-color: rgba(var(--primary-rgb), 0.88);
-  background: rgba(var(--primary-rgb), 0.18);
-  box-shadow: 0 0 26px rgba(var(--primary-rgb), 0.22);
+  border-color: rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.1);
+  box-shadow: none;
 }
 
 .chevron {
@@ -132,12 +133,10 @@
 
 .discovery-card:hover,
 .discovery-card:focus-visible {
-  border-color: rgba(var(--primary-rgb), 0.54);
-  box-shadow:
-    0 24px 58px rgba(0, 0, 0, 0.36),
-    0 0 0 3px rgba(var(--primary-rgb), 0.09);
+  border-color: rgba(255, 255, 255, 0.18);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.32);
   outline: 0;
-  transform: translateY(-3px);
+  transform: translateY(-3px) scale(1.02);
 }
 
 .discovery-card:hover::before,

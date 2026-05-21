@@ -5,6 +5,7 @@
 const API_BASE_URL = 'https://api.themoviedb.org/3';
 const POSTER_BASE_URL = 'https://image.tmdb.org/t/p/w500';
 const BACKDROP_BASE_URL = 'https://image.tmdb.org/t/p/w1280';
+const LOGO_BASE_URL = 'https://image.tmdb.org/t/p/w92';
 export const LANGUAGE = 'tr-TR';
 export const FALLBACK_LANGUAGE = 'en-US';
 
@@ -212,6 +213,9 @@ const formatMedia = (item, fallbackMediaType = 'movie') => {
   const title = mediaType === 'tv'
     ? item.name || item.original_name || item.title
     : item.title || item.original_title || item.name;
+  const originalTitle = mediaType === 'tv'
+    ? item.original_name || item.name || title
+    : item.original_title || item.title || title;
   const releaseDate = mediaType === 'tv' ? item.first_air_date : item.release_date;
   const genreMap = getGenreMap(mediaType);
   const genreIds = item.genre_ids || item.genres?.map(genre => genre.id) || [];
@@ -225,6 +229,15 @@ const formatMedia = (item, fallbackMediaType = 'movie') => {
     media_type: mediaType,
     title,
     name: title,
+    originalTitle,
+    originalName: originalTitle,
+    original_title: mediaType === 'movie' ? originalTitle : undefined,
+    original_name: mediaType === 'tv' ? originalTitle : undefined,
+    originalLanguage: item.original_language || '',
+    original_language: item.original_language || '',
+    originCountry: item.origin_country || [],
+    origin_country: item.origin_country || [],
+    productionCountries: item.production_countries || [],
     poster_path: item.poster_path,
     posterPath: item.poster_path || null,
     backdrop_path: item.backdrop_path,
@@ -261,6 +274,73 @@ const formatMediaList = (items = [], fallbackMediaType = 'movie', options = {}) 
     .map(item => formatMedia(item, item.media_type || fallbackMediaType))
     .slice(0, 20)
   );
+};
+
+const uniqueBy = (items = [], getKey) => {
+  const seen = new Set();
+
+  return items.filter((item) => {
+    const key = getKey(item);
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+};
+
+const formatWatchProviders = (providerData = {}) => {
+  const countryProviders = providerData?.results?.TR || providerData?.results?.US || null;
+  if (!countryProviders) return [];
+
+  const providerGroups = [
+    ['flatrate', 'Abonelik'],
+    ['free', 'Ücretsiz'],
+    ['ads', 'Reklamlı'],
+    ['rent', 'Kiralama'],
+    ['buy', 'Satın Alma'],
+  ];
+
+  return uniqueBy(
+    providerGroups.flatMap(([groupKey, availability]) => (
+      (countryProviders[groupKey] || []).map(provider => ({
+        providerId: provider.provider_id,
+        providerName: provider.provider_name,
+        availability,
+        logo: provider.logo_path ? `${LOGO_BASE_URL}${provider.logo_path}` : null,
+      }))
+    )),
+    provider => provider.providerId || provider.providerName,
+  );
+};
+
+const formatCrewSummary = (credits = {}, mediaType = 'movie', createdBy = []) => {
+  const crew = credits?.crew || [];
+  const directors = crew
+    .filter(member => member.job === 'Director')
+    .map(member => member.name)
+    .filter(Boolean);
+  const producers = [
+    ...createdBy.map(member => member.name).filter(Boolean),
+    ...crew
+      .filter(member => ['Producer', 'Executive Producer', 'Creator'].includes(member.job))
+      .map(member => member.name)
+      .filter(Boolean),
+  ];
+
+  return {
+    directors: uniqueBy(directors, name => name).slice(0, 4),
+    producers: uniqueBy(producers, name => name).slice(0, 4),
+    creditLabel: mediaType === 'tv' ? 'Yapımcı / Yaratıcı' : 'Yönetmen',
+  };
+};
+
+const formatRelatedMedia = (localizedData = {}, cleanedType = 'movie') => {
+  const recommendations = localizedData.recommendations?.results || [];
+  const similar = localizedData.similar?.results || [];
+
+  return uniqueBy(
+    formatMediaList([...recommendations, ...similar], cleanedType, { requirePoster: false }),
+    item => `${item.mediaType}:${item.id}`,
+  ).slice(0, 10);
 };
 
 const sortMixedMedia = (items, sortBy) => {
@@ -323,7 +403,7 @@ export const getMediaFullDetails = async (mediaId, mediaType = 'movie') => {
     const cleanedType = mediaType === 'tv' ? 'tv' : 'movie';
     const [{ data, fallbackData }, trailerKey] = await Promise.all([
       fetchLocalizedTmdb(`/${cleanedType}/${mediaId}`, {
-        append_to_response: 'credits',
+        append_to_response: 'credits,watch/providers,recommendations,similar',
       }),
       getLocalizedTrailerKey(mediaId, cleanedType),
     ]);
@@ -331,11 +411,20 @@ export const getMediaFullDetails = async (mediaId, mediaType = 'movie') => {
     if (!data) return null;
 
     const localizedData = mergeLocalizedMediaItem(data, fallbackData, cleanedType);
+    const crewSummary = formatCrewSummary(
+      localizedData.credits,
+      cleanedType,
+      localizedData.created_by || [],
+    );
 
     return {
       ...formatMedia(localizedData, cleanedType),
       runtime: cleanedType === 'movie' ? localizedData.runtime || null : null,
+      episodeRuntime: cleanedType === 'tv' ? localizedData.episode_run_time?.[0] || null : null,
       trailerKey,
+      watchProviders: formatWatchProviders(localizedData['watch/providers']),
+      similarContent: formatRelatedMedia(localizedData, cleanedType),
+      ...crewSummary,
       cast: (localizedData.credits?.cast || []).slice(0, 8).map(actor => ({
         id: actor.id,
         name: actor.name,
@@ -351,19 +440,22 @@ export const getMediaFullDetails = async (mediaId, mediaType = 'movie') => {
 export const getMovieFullDetails = (movieId) => getMediaFullDetails(movieId, 'movie');
 export const getTvShowFullDetails = (showId) => getMediaFullDetails(showId, 'tv');
 
-export const discoverMoviesByGenres = async (genreIds = [], excludedMovieIds = []) => {
+export const discoverMoviesByGenres = async (genreIds = [], excludedMovieIds = [], options = {}) => {
+  const { limit = 8, page = 1, sortBy = 'vote_average.desc' } = options;
   const cleanedGenreIds = genreIds.filter(Boolean).slice(0, 3);
-  if (cleanedGenreIds.length === 0) return [];
+  const excluded = new Set(excludedMovieIds);
 
   try {
-    const { data, fallbackData } = await fetchLocalizedTmdb('/discover/movie', {
-      include_adult: 'false',
-      sort_by: 'vote_average.desc',
-      'vote_count.gte': '300',
-      with_genres: cleanedGenreIds.join(','),
-    });
+    const endpoint = cleanedGenreIds.length > 0 ? '/discover/movie' : '/movie/popular';
+    const params = { include_adult: 'false', page: String(page) };
 
-    const excluded = new Set(excludedMovieIds);
+    if (cleanedGenreIds.length > 0) {
+      params.sort_by = sortBy;
+      params['vote_count.gte'] = '300';
+      params.with_genres = cleanedGenreIds.join(',');
+    }
+
+    const { data, fallbackData } = await fetchLocalizedTmdb(endpoint, params);
 
     return formatMediaList(
       mergeLocalizedResults(data?.results || [], fallbackData?.results || [], 'movie'),
@@ -371,31 +463,33 @@ export const discoverMoviesByGenres = async (genreIds = [], excludedMovieIds = [
       { requirePoster: false },
     )
       .filter(movie => !isExcludedMedia(movie, excluded))
-      .slice(0, 8);
+      .slice(0, limit);
   } catch (error) {
     console.error('Error fetching recommendations:', error);
     return [];
   }
 };
 
-export const discoverTvShowsByGenres = async (genreIds = [], excludedShowIds = []) => {
+export const discoverTvShowsByGenres = async (genreIds = [], excludedShowIds = [], options = {}) => {
+  const { limit = 8, page = 1, sortBy = 'vote_average.desc' } = options;
   const cleanedGenreIds = genreIds.filter(Boolean).slice(0, 3);
   const hasGenreSignal = cleanedGenreIds.length > 0;
+  const excluded = new Set(excludedShowIds);
 
   try {
     const endpoint = hasGenreSignal ? '/discover/tv' : '/tv/popular';
     const params = {
       include_adult: 'false',
+      page: String(page),
     };
 
     if (hasGenreSignal) {
-      params.sort_by = 'vote_average.desc';
+      params.sort_by = sortBy;
       params['vote_count.gte'] = '150';
       params.with_genres = cleanedGenreIds.join(',');
     }
 
     const { data, fallbackData } = await fetchLocalizedTmdb(endpoint, params);
-    const excluded = new Set(excludedShowIds);
 
     return formatMediaList(
       mergeLocalizedResults(data?.results || [], fallbackData?.results || [], 'tv'),
@@ -403,11 +497,46 @@ export const discoverTvShowsByGenres = async (genreIds = [], excludedShowIds = [
       { requirePoster: false },
     )
       .filter(show => !isExcludedMedia(show, excluded))
-      .slice(0, 8);
+      .slice(0, limit);
   } catch (error) {
     console.error('Error fetching recommendations:', error);
     return [];
   }
+};
+
+export const fetchRecommendationCandidates = async ({
+  movieGenreIds = [],
+  tvGenreIds = [],
+  excludedKeys = [],
+  limit = 20,
+  page = 1,
+  alternateSort = false,
+} = {}) => {
+  const sortBy = alternateSort ? 'popularity.desc' : 'vote_average.desc';
+  const secondPage = alternateSort ? page + 1 : page;
+
+  const [moviesPage1, moviesPage2, tvPage1, tvPage2] = await Promise.all([
+    discoverMoviesByGenres(movieGenreIds, excludedKeys, { limit, page, sortBy }),
+    alternateSort
+      ? discoverMoviesByGenres(movieGenreIds, excludedKeys, { limit: Math.ceil(limit / 2), page: secondPage, sortBy })
+      : Promise.resolve([]),
+    discoverTvShowsByGenres(tvGenreIds, excludedKeys, { limit, page, sortBy }),
+    alternateSort
+      ? discoverTvShowsByGenres(tvGenreIds, excludedKeys, { limit: Math.ceil(limit / 2), page: secondPage, sortBy })
+      : Promise.resolve([]),
+  ]);
+
+  const seen = new Set();
+  const merged = [];
+
+  [...moviesPage1, ...moviesPage2, ...tvPage1, ...tvPage2].forEach((item) => {
+    const key = getFormattedMediaKey(item.mediaType || item.media_type || 'movie', item.id);
+    if (seen.has(key)) return;
+    seen.add(key);
+    merged.push(item);
+  });
+
+  return merged;
 };
 
 const getCatalogForType = async ({

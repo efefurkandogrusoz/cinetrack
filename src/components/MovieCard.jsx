@@ -1,5 +1,15 @@
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
+import {
+  Check,
+  Heart,
+  Info,
+  Play,
+  Plus,
+  ThumbsDown,
+  ThumbsUp,
+  Trash2,
+} from 'lucide-react';
 import { useMovies } from '../context/MovieContext';
 import { getMediaTrailer } from '../services/tmdb';
 import { getMediaTypeLabel, getTvProgress, getWatchStatus, getWatchStatusLabel, isTvShow } from '../utils/media';
@@ -30,23 +40,13 @@ const MovieCard = ({ movie }) => {
 
   const rating = Number(movie.rating);
   const ratingLabel = Number.isFinite(rating) && rating > 0 ? rating.toFixed(1) : null;
-  const metaItems = [movie.year, ...(movie.genres || []).slice(0, 2)].filter(Boolean);
-  const overview =
-    movie.overview && movie.overview.length > 132
-      ? `${movie.overview.slice(0, 132).trim()}...`
-      : movie.overview || `Bu ${mediaLabel.toLowerCase()} için açıklama bulunamadı.`;
+  const yearLabel = movie.year && movie.year !== 'N/A' ? movie.year : null;
+  const overview = movie.overview
+    ? (movie.overview.length > 120 ? `${movie.overview.slice(0, 120).trim()}…` : movie.overview)
+    : null;
 
   const openDetails = () => {
     setDetailsOpen(true);
-  };
-
-  const handleCardKeyDown = (event) => {
-    if (event.target !== event.currentTarget) return;
-
-    if (event.key === 'Enter' || event.key === ' ') {
-      event.preventDefault();
-      openDetails();
-    }
   };
 
   const handleDelete = () => {
@@ -96,156 +96,181 @@ const MovieCard = ({ movie }) => {
 
   return (
     <>
-    <article className={`movie-card ${movie.watched ? 'is-watched has-reactions' : ''} ${movie.favorite ? 'is-favorite' : ''} ${tvShow ? 'is-tv-show' : 'is-movie'}`}>
-      <div
-        className="card-main"
-        onClick={openDetails}
-        role="button"
-        tabIndex={0}
-        onKeyDown={handleCardKeyDown}
-        aria-label={`${movie.title} detaylarını aç`}
+      <article
+        className={`movie-card ${movie.watched ? 'is-watched' : ''} ${movie.favorite ? 'is-favorite' : ''} ${tvShow ? 'is-tv-show' : 'is-movie'}`}
       >
-        <div className="card-poster-container">
+        <div className="card-poster-wrap">
           {movie.poster ? (
-            <img src={movie.poster} alt={movie.title} className="card-poster" />
+            <img src={movie.poster} alt="" className="card-poster" loading="lazy" />
           ) : (
-            <div className="card-poster-placeholder">Poster Yok</div>
+            <div className="card-poster-placeholder" aria-hidden="true">
+              <span>{mediaLabel}</span>
+            </div>
           )}
 
-          <div className="card-gradient" />
+          <div className="card-poster-shade" aria-hidden="true" />
 
-          <div className="card-topline">
-            {ratingLabel && (
-              <span className="card-rating">
-                <span aria-hidden="true">★</span>
+          <div className="card-badges" aria-hidden="true">
+            {ratingLabel ? (
+              <span className="card-badge card-rating">
+                <span className="card-rating-star">★</span>
                 {ratingLabel}
               </span>
+            ) : (
+              <span className="card-badge card-rating card-rating-empty">—</span>
             )}
-            <span className="card-media-type">{mediaLabel}</span>
-            <span className={`card-status ${watchStatus}`}>
-              {statusLabel}
-            </span>
+            <div className="card-badge-group">
+              <span className="card-badge card-type">{mediaLabel}</span>
+              <span className={`card-badge card-status ${watchStatus}`}>{statusLabel}</span>
+            </div>
           </div>
 
           {movie.favorite && (
-            <span className="card-favorite-badge" aria-label="Favori">
-              ★
+            <span className="card-favorite-mark" aria-label="Favori">
+              <Heart size={14} fill="currentColor" aria-hidden="true" />
             </span>
           )}
 
-          {movie.watched && !tvShow && (
-            <div className="poster-reactions" aria-label="Film beğenisi">
-              <button
-                className={movie.reaction === 'liked' ? 'poster-reaction active liked' : 'poster-reaction'}
-                onClick={event => {
-                  stopAction(event);
-                  setReaction(docId, 'liked');
-                }}
-                type="button"
-              >
-                Beğendim
-              </button>
-              <button
-                className={movie.reaction === 'disliked' ? 'poster-reaction active disliked' : 'poster-reaction'}
-                onClick={event => {
-                  stopAction(event);
-                  setReaction(docId, 'disliked');
-                }}
-                type="button"
-              >
-                Beğenmedim
-              </button>
-            </div>
-          )}
-        </div>
-
-        <div className="card-info">
-          <div className="card-heading">
-            <h5 className="card-title" title={movie.title}>{movie.title}</h5>
-            {movie.runtime && <span className="card-runtime">{movie.runtime} dk</span>}
-          </div>
-
-          {metaItems.length > 0 && (
-            <div className="card-meta">
-              {metaItems.map(item => <span key={item}>{item}</span>)}
-            </div>
-          )}
-
           {tvShow && (
-            <div className="card-tv-tracking">
-              <div className="card-progress">
-                <span>S{movie.currentSeason || 1}</span>
-                <span>B{movie.currentEpisode || 1}</span>
-                {movie.totalEpisodes > 0 && <span>{tvProgress.watchedEpisodes}/{movie.totalEpisodes} bölüm</span>}
-                <span>%{tvProgress.progressPercent}</span>
-              </div>
-              <div className="card-progress-meter" aria-label={`%${tvProgress.progressPercent} tamamlandı`}>
+            <div className="card-tv-chip" aria-label={`Sezon ${movie.currentSeason || 1}, Bölüm ${movie.currentEpisode || 1}`}>
+              <span>S{movie.currentSeason || 1} · B{movie.currentEpisode || 1}</span>
+              <span className="card-tv-progress-meter" aria-hidden="true">
                 <i style={{ width: `${tvProgress.progressPercent}%` }} />
-              </div>
-              <small>%{tvProgress.progressPercent} tamamlandı</small>
+              </span>
             </div>
           )}
 
-          <p className="card-description">{overview}</p>
-        </div>
-      </div>
+          <div className="card-hover-panel" aria-label={`${movie.title} hızlı işlemler`}>
+            {overview && <p className="card-hover-overview">{overview}</p>}
 
-      <div className="card-actions" aria-label={`${movie.title} işlemleri`}>
+            {movie.watched && !tvShow && (
+              <div className="card-hover-reactions" aria-label="Film beğenisi">
+                <button
+                  className={movie.reaction === 'liked' ? 'card-icon-btn active liked' : 'card-icon-btn'}
+                  type="button"
+                  title="Beğendim"
+                  aria-label="Beğendim"
+                  onClick={event => {
+                    stopAction(event);
+                    setReaction(docId, 'liked');
+                  }}
+                >
+                  <ThumbsUp size={16} aria-hidden="true" />
+                </button>
+                <button
+                  className={movie.reaction === 'disliked' ? 'card-icon-btn active disliked' : 'card-icon-btn'}
+                  type="button"
+                  title="Beğenmedim"
+                  aria-label="Beğenmedim"
+                  onClick={event => {
+                    stopAction(event);
+                    setReaction(docId, 'disliked');
+                  }}
+                >
+                  <ThumbsDown size={16} aria-hidden="true" />
+                </button>
+              </div>
+            )}
+
+            <div className="card-hover-actions">
+              <button
+                className="card-icon-btn"
+                type="button"
+                title="Fragman"
+                aria-label="Fragmanı izle"
+                disabled={trailerLoading}
+                onClick={openTrailer}
+              >
+                <Play size={16} aria-hidden="true" />
+              </button>
+              <button
+                className={`card-icon-btn ${movie.favorite ? 'active favorite' : ''}`}
+                type="button"
+                title={movie.favorite ? 'Favorilerden çıkar' : 'Favorilere ekle'}
+                aria-label={movie.favorite ? 'Favorilerden çıkar' : 'Favorilere ekle'}
+                onClick={event => {
+                  stopAction(event);
+                  toggleFavorite(docId, movie.favorite || false);
+                }}
+              >
+                <Heart size={16} aria-hidden="true" />
+              </button>
+              <button
+                className={`card-icon-btn ${movie.watched || watchStatus === 'watching' ? 'active watch' : ''}`}
+                type="button"
+                title={tvShow ? tvWatchButtonLabel : (movie.watched ? 'İzlendi' : 'İzledim')}
+                aria-label={tvShow ? tvWatchButtonLabel : (movie.watched ? 'İzlendi' : 'İzledim')}
+                onClick={event => {
+                  stopAction(event);
+                  if (tvShow) {
+                    setWatchStatus(docId, watchStatus === 'watching' ? 'watchlist' : 'watching');
+                    return;
+                  }
+                  toggleWatched(docId, movie.watched);
+                }}
+              >
+                <Check size={16} aria-hidden="true" />
+              </button>
+              {tvShow && (
+                <button
+                  className="card-icon-btn"
+                  type="button"
+                  title={completedTvShow ? 'Tamamlandı' : 'Sonraki bölüm'}
+                  aria-label={completedTvShow ? 'Tamamlandı' : 'Sonraki bölüm'}
+                  disabled={completedTvShow}
+                  onClick={event => {
+                    stopAction(event);
+                    if (completedTvShow) return;
+                    advanceEpisode(docId);
+                  }}
+                >
+                  <Plus size={16} aria-hidden="true" />
+                </button>
+              )}
+              <button
+                className="card-icon-btn"
+                type="button"
+                title="Detayları aç"
+                aria-label="Detayları aç"
+                onClick={event => {
+                  stopAction(event);
+                  openDetails();
+                }}
+              >
+                <Info size={16} aria-hidden="true" />
+              </button>
+              <button
+                className="card-icon-btn danger"
+                type="button"
+                title="Sil"
+                aria-label="Listeden sil"
+                onClick={event => {
+                  stopAction(event);
+                  handleDelete();
+                }}
+              >
+                <Trash2 size={16} aria-hidden="true" />
+              </button>
+            </div>
+          </div>
+        </div>
+
         <button
-          className="action-btn trailer-btn"
+          className="card-footer"
           type="button"
-          onClick={openTrailer}
-          disabled={trailerLoading}
+          onClick={openDetails}
+          aria-label={`${movie.title} detaylarını aç`}
         >
-          <span className="btn-icon" aria-hidden="true">▶</span>
-          <span>{trailerLoading ? 'Yükleniyor' : 'Fragman'}</span>
+          <span className="card-title" title={movie.title}>{movie.title}</span>
+          {(yearLabel || tvShow) && (
+            <span className="card-footer-meta">
+              {yearLabel && <em>{yearLabel}</em>}
+              {tvShow && <span>%{tvProgress.progressPercent}</span>}
+            </span>
+          )}
         </button>
-        <button
-          className={`action-btn favorite-btn ${movie.favorite ? 'active' : ''}`}
-          onClick={event => {
-            stopAction(event);
-            toggleFavorite(docId, movie.favorite || false);
-          }}
-          type="button"
-          title={movie.favorite ? 'Favorilerden çıkar' : 'Favorilere ekle'}
-        >
-          <span className="btn-icon" aria-hidden="true">★</span>
-          <span>Favori</span>
-        </button>
-        <button
-          className={`action-btn watch-btn ${movie.watched || watchStatus === 'watching' ? 'active' : ''}`}
-          onClick={event => {
-            stopAction(event);
-            if (tvShow) {
-              setWatchStatus(docId, watchStatus === 'watching' ? 'watchlist' : 'watching');
-              return;
-            }
-            toggleWatched(docId, movie.watched);
-          }}
-          type="button"
-        >
-          <span className="btn-icon" aria-hidden="true">✓</span>
-          <span>{tvShow ? tvWatchButtonLabel : (movie.watched ? 'İzlendi' : 'İzle')}</span>
-        </button>
-        {tvShow && (
-          <button className="action-btn episode-btn" onClick={event => {
-            stopAction(event);
-            if (completedTvShow) return;
-            advanceEpisode(docId);
-          }} type="button" disabled={completedTvShow}>
-            <span className="btn-icon" aria-hidden="true">+</span>
-            <span>{completedTvShow ? 'Tamamlandı' : 'Sonraki Bölüm'}</span>
-          </button>
-        )}
-        <button className="action-btn delete-btn" onClick={event => {
-          stopAction(event);
-          handleDelete();
-        }} type="button">
-          <span className="btn-icon" aria-hidden="true">×</span>
-          <span>Sil</span>
-        </button>
-      </div>
-    </article>
+      </article>
+
       {trailerOpen && createPortal(
         <div className="movie-trailer-layer" role="dialog" aria-modal="true" aria-label={`${movie.title} fragman`}>
           <button className="movie-trailer-backdrop" type="button" onClick={closeTrailer} aria-label="Fragmanı kapat" />
@@ -280,7 +305,7 @@ const MovieCard = ({ movie }) => {
         </div>,
         document.body,
       )}
-    {detailsOpen && <MovieDetailsModal movie={movie} onClose={() => setDetailsOpen(false)} />}
+      {detailsOpen && <MovieDetailsModal movie={movie} onClose={() => setDetailsOpen(false)} />}
     </>
   );
 };

@@ -152,9 +152,9 @@
 
 .movie-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(240px, 100%), 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(168px, 100%), 1fr));
   align-items: stretch;
-  gap: 20px;
+  gap: 16px 14px;
   width: 100%;
   overflow: visible;
 }

@@ -10,9 +10,14 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
+import AchievementBadges from '../components/AchievementBadges';
 import MovieDetailsModal from '../components/MovieDetailsModal';
 import Navbar from '../components/Navbar';
+import WeeklySummary from '../components/WeeklySummary';
+import WatchTimeStats from '../components/WatchTimeStats';
+import '../styles/components/FeatureWidgets.css';
 import { useMovies } from '../context/MovieContext';
+import { calculateAchievements } from '../utils/achievements';
 import { calculateMovieStatistics, formatMovieRating } from '../utils/movieStatistics';
 import '../styles/pages/Statistics.css';
 
@@ -80,6 +85,7 @@ const Statistics = () => {
   const { error, loading, movies } = useMovies();
   const [selectedMovie, setSelectedMovie] = useState(null);
   const stats = useMemo(() => calculateMovieStatistics(movies), [movies]);
+  const achievements = useMemo(() => calculateAchievements(movies), [movies]);
   const isInitialLoading = loading && movies.length === 0;
   const hasMovies = movies.length > 0;
   const favoriteMovie = stats.highestRatedFavorite;
@@ -95,6 +101,11 @@ const Statistics = () => {
             <p>Film alışkanlıklarını ve listelerini buradan takip edebilirsin.</p>
           </section>
 
+          <section className="statistics-features" aria-label="Haftalık özet ve izleme süresi">
+            <WeeklySummary />
+            <WatchTimeStats />
+          </section>
+
           {error && (
             <div className="statistics-alert" role="alert">
               Veriler senkronize edilirken bir sorun oluştu. Yerel kayıtlar üzerinden istatistik gösteriliyor.
@@ -107,11 +118,14 @@ const Statistics = () => {
               <p>İstatistikler yükleniyor...</p>
             </div>
           ) : !hasMovies ? (
-            <section className="statistics-empty-state">
-              <div className="empty-icon">CT</div>
-              <h3>Henüz istatistik oluşturmak için yeterli kayıt yok.</h3>
-              <p>Film ekledikçe istatistiklerin burada görünecek.</p>
-            </section>
+            <>
+              <section className="statistics-empty-state">
+                <div className="empty-icon">CT</div>
+                <h3>Henüz istatistik oluşturmak için yeterli kayıt yok.</h3>
+                <p>Film ekledikçe istatistiklerin ve rozet ilerlemen burada görünecek.</p>
+              </section>
+              <AchievementBadges achievements={achievements} />
+            </>
           ) : (
             <>
               <section className="statistics-grid" aria-label="Film istatistikleri">
@@ -256,6 +270,8 @@ const Statistics = () => {
                   )}
                 </article>
               </section>
+
+              <AchievementBadges achievements={achievements} />
             </>
           )}
         </main>

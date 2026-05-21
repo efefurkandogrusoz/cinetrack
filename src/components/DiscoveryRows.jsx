@@ -44,24 +44,24 @@ const DiscoveryRows = () => {
   return (
     <section className="discovery-section">
       <DiscoveryRow
-        title="Haftanın Filmleri"
-        subtitle="Bu hafta TMDB'de en çok ilgi gören filmler"
+        title="Popüler Filmler"
+        subtitle="Bu haftanın en çok konuşulan filmleri"
         movies={weeklyMovies}
         existingIds={existingIds}
         onAdd={addMovie}
         onSelect={setSelectedMovie}
       />
       <DiscoveryRow
-        title="Haftanın Popüler Dizileri"
-        subtitle="Bu hafta TMDB'de öne çıkan diziler"
+        title="Popüler Diziler"
+        subtitle="Bu haftanın öne çıkan dizileri"
         movies={weeklyShows}
         existingIds={existingIds}
         onAdd={addMovie}
         onSelect={setSelectedMovie}
       />
       <DiscoveryRow
-        title="Günün Filmleri"
-        subtitle="Bugün TMDB'de trend olan filmler ve hızlı ekleme kartları"
+        title="Günün Trendleri"
+        subtitle="Bugün popüler olan filmler"
         movies={dailyMovies}
         existingIds={existingIds}
         onAdd={addMovie}
@@ -69,7 +69,7 @@ const DiscoveryRows = () => {
       />
       <DiscoveryRow
         title="Trend Diziler"
-        subtitle="Bugün trend olan diziler ve hızlı ekleme kartları"
+        subtitle="Bugün popüler olan diziler"
         movies={dailyShows}
         existingIds={existingIds}
         onAdd={addMovie}

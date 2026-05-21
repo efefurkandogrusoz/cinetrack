@@ -1,15 +1,23 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
 import ContinueWatching from '../components/ContinueWatching';
 import DiscoveryRows from '../components/DiscoveryRows';
+import FeaturedMovies from '../components/FeaturedMovies';
 import MovieList from '../components/MovieList';
 import Navbar from '../components/Navbar';
 import RecentMovieRows from '../components/RecentMovieRows';
 import UserInsights from '../components/UserInsights';
+import { useMovies } from '../context/MovieContext';
+import { getWatchStatus } from '../utils/media';
 import '../styles/pages/pages.css';
+import '../styles/pages/Home.css';
+
+const HERO_BACKDROP =
+  'https://image.tmdb.org/t/p/w1280/jYEW5xZkZk2WTrdbMGAPFuBqbDc.jpg';
 
 const Home = () => {
   const location = useLocation();
+  const { movies } = useMovies();
 
   const scrollToSection = (selector) => {
     document.querySelector(selector)?.scrollIntoView({
@@ -17,6 +25,27 @@ const Home = () => {
       block: 'start',
     });
   };
+
+  const heroStats = useMemo(() => {
+    const watched = movies.filter(
+      movie => movie.watched
+        || getWatchStatus(movie) === 'completed'
+        || getWatchStatus(movie) === 'watched',
+    ).length;
+
+    return [
+      { value: movies.length, label: 'içerik' },
+      { value: watched, label: 'izlendi' },
+      {
+        value: movies.filter(movie => movie.favorite || movie.isFavorite).length,
+        label: 'favori',
+      },
+      {
+        value: movies.filter(movie => getWatchStatus(movie) === 'watchlist').length,
+        label: 'izlenecek',
+      },
+    ];
+  }, [movies]);
 
   useEffect(() => {
     if (location.state?.scrollToTop) {
@@ -46,33 +75,68 @@ const Home = () => {
       <Navbar />
       <div className="page-content">
         <div className="container-fluid home-layout">
-          <section className="page-header hero-header" aria-labelledby="home-hero-title">
-            <div className="hero-copy">
-              <p className="eyebrow">CineTrack</p>
-              <h2 id="home-hero-title">Bugün ne izleyeceğini saniyeler içinde bul.</h2>
-              <p>Canlı arama, haftalık seçkiler ve kişisel listelerin tek sinematik panelde birleşiyor.</p>
+          <section
+            className="page-header hero-header home-hero cinematic-hero"
+            aria-labelledby="home-hero-title"
+          >
+            <div className="hero-backdrop" aria-hidden="true">
+              <div
+                className="hero-backdrop-image"
+                style={{ backgroundImage: `url(${HERO_BACKDROP})` }}
+              />
+              <div className="hero-backdrop-overlay" />
+            </div>
 
-              <div className="hero-actions">
-                <button className="hero-action primary" type="button" onClick={() => scrollToSection('.discovery-section')}>
-                  Trendleri Keşfet
-                </button>
-                <button className="hero-action ghost" type="button" onClick={() => scrollToSection('#my-list')}>
-                  Listeme Git
-                </button>
+            <div className="hero-inner">
+              <div className="hero-copy">
+                <p className="eyebrow hero-brand">CineTrack</p>
+                <h2 id="home-hero-title">Film ve Dizilerini Takip Et</h2>
+                <p className="hero-lead">
+                  Favorilerini kaydet, izlediklerini işaretle, puan ver ve yeni içerikler keşfet.
+                </p>
+
+                <div className="hero-actions">
+                  <button
+                    className="hero-action primary"
+                    type="button"
+                    onClick={() => scrollToSection('.discovery-section')}
+                  >
+                    Keşfet
+                  </button>
+                  <button
+                    className="hero-action secondary"
+                    type="button"
+                    onClick={() => scrollToSection('#my-list')}
+                  >
+                    Listeme Git
+                  </button>
+                </div>
+
+                <ul className="hero-stats" aria-label="Liste özeti">
+                  {heroStats.map(stat => (
+                    <li key={stat.label}>
+                      <strong>{stat.value}</strong>
+                      <span>{stat.label}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className="hero-visual" aria-hidden="true">
+                <div
+                  className="hero-visual-poster"
+                  style={{ backgroundImage: `url(${HERO_BACKDROP})` }}
+                />
               </div>
             </div>
-
-            <div className="hero-poster-rail" aria-hidden="true">
-              <span className="hero-frame frame-one" />
-              <span className="hero-frame frame-two" />
-              <span className="hero-frame frame-three" />
-            </div>
           </section>
+
+          <FeaturedMovies />
           <DiscoveryRows />
           <ContinueWatching />
+          <MovieList listId="my-list" />
           <RecentMovieRows />
           <UserInsights />
-          <MovieList listId="my-list" />
         </div>
       </div>
     </div>

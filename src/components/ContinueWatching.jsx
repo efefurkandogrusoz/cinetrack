@@ -17,8 +17,8 @@ const ContinueWatching = () => {
     <section className="continue-section" aria-labelledby="continue-title">
       <div className="continue-head">
         <div>
-          <h3 id="continue-title">İzlemeye Devam Et</h3>
-          <p>İzleniyor durumundaki dizilerin ve kaldığın bölüm bilgileri.</p>
+          <h3 id="continue-title">Kaldığın Yerden Devam Et</h3>
+          <p>İzlemeye devam ettiğin diziler ve bölüm ilerlemen.</p>
         </div>
         <span>{shows.length} dizi</span>
       </div>

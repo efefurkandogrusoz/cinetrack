@@ -14,6 +14,8 @@ import {
   hasProfileAvatarUpdate,
   normalizeProfileAvatarFields,
 } from '../constants/profileAvatars';
+import { notifyFromBridge } from '../utils/notifyBridge';
+import { NOTIFICATION_TYPES } from '../utils/notificationHelpers';
 
 export const MovieContext = createContext();
 
@@ -218,6 +220,8 @@ export const MovieProvider = ({ children }) => {
       dispatch({ type: 'SET_AUTH_READY', payload: true });
 
       if (user) {
+        firebaseService.syncCurrentUserProfileMetadata(user);
+
         dispatch({
           type: 'SET_USER_PROFILE',
           payload: {
@@ -225,6 +229,7 @@ export const MovieProvider = ({ children }) => {
             email: user.email,
             displayName: user.displayName || user.email?.split('@')[0] || 'Kullanıcı',
             profileNote: '',
+            createdAt: user.metadata?.creationTime || user.metadata?.createdAt || null,
             avatarType: 'preset',
             avatarId: DEFAULT_PROFILE_AVATAR,
             avatarUrl: null,
@@ -280,11 +285,24 @@ export const MovieProvider = ({ children }) => {
       const favoriteAt = isFavorite
         ? movieData.favoriteAt || movieData.favorite_at || now
         : null;
+      const userRating = Number(
+        normalizedInput.userRating ??
+        normalizedInput.personalRating ??
+        normalizedInput.myRating ??
+        normalizedInput.userScore ??
+        0
+      );
+      const hasUserRating = Number.isFinite(userRating) && userRating > 0;
 
       const newMovie = {
         id: normalizedInput.id,
         mediaType,
         title: normalizedInput.title,
+        originalTitle: normalizedInput.originalTitle || normalizedInput.originalName || null,
+        originalName: normalizedInput.originalName || normalizedInput.originalTitle || null,
+        originalLanguage: normalizedInput.originalLanguage || normalizedInput.original_language || '',
+        originCountry: normalizedInput.originCountry || normalizedInput.origin_country || [],
+        productionCountries: normalizedInput.productionCountries || [],
         poster: normalizedInput.poster || null,
         posterPath: normalizedInput.posterPath || null,
         poster_path: normalizedInput.poster_path || normalizedInput.posterPath || null,
@@ -307,6 +325,10 @@ export const MovieProvider = ({ children }) => {
         reaction: normalizedInput.reaction || null,
         rating: normalizedInput.rating || normalizedInput.voteAverage || 0,
         voteAverage: normalizedInput.voteAverage || normalizedInput.rating || 0,
+        userRating: hasUserRating ? userRating : 0,
+        personalRating: hasUserRating ? userRating : 0,
+        ratingAt: hasUserRating ? movieData.ratingAt || movieData.ratedAt || now : null,
+        ratedAt: hasUserRating ? movieData.ratedAt || movieData.ratingAt || now : null,
         overview: normalizedInput.overview || '',
         currentSeason: tvTracking?.currentSeason || normalizedInput.currentSeason,
         currentEpisode: tvTracking?.currentEpisode || normalizedInput.currentEpisode,
@@ -336,6 +358,31 @@ export const MovieProvider = ({ children }) => {
         const movieWithDocId = { ...newMovie, docId: `local_${Date.now()}` };
         dispatch({ type: 'ADD_MOVIE', payload: movieWithDocId });
       }
+
+      const title = newMovie.title || 'İçerik';
+      if (isFavorite) {
+        notifyFromBridge(
+          NOTIFICATION_TYPES.FAVORITE,
+          'Favorilere eklendi',
+          `${title} favorilerine eklendi.`,
+          { movieId: newMovie.id, toastVariant: 'success' },
+        );
+      }
+      if (isWatched) {
+        notifyFromBridge(
+          NOTIFICATION_TYPES.WATCHED,
+          'İzlendi olarak işaretlendi',
+          `${title} izlendi olarak işaretlendi.`,
+          { movieId: newMovie.id, toastVariant: 'success' },
+        );
+      } else {
+        notifyFromBridge(
+          NOTIFICATION_TYPES.WATCHLIST,
+          'İzlenecekler listesine eklendi',
+          `${title} izlenecekler listesine eklendi.`,
+          { movieId: newMovie.id, toastVariant: 'success' },
+        );
+      }
     } catch (error) {
       console.error('Error adding movie:', error);
       dispatch({ type: 'SET_ERROR', payload: 'Failed to add movie' });
@@ -346,18 +393,28 @@ export const MovieProvider = ({ children }) => {
 
   const deleteMovie = useCallback(async (docId) => {
     dispatch({ type: 'SET_LOADING', payload: true });
+    const removed = state.movies.find(movie => (movie.docId || movie.id) === docId);
     try {
       if (state.user) {
         await firebaseService.deleteMovie(docId);
       }
       dispatch({ type: 'DELETE_MOVIE', payload: docId });
+
+      if (removed) {
+        notifyFromBridge(
+          NOTIFICATION_TYPES.DELETE,
+          'Listeden silindi',
+          `${removed.title || 'İçerik'} listeden silindi.`,
+          { movieId: removed.id, toastVariant: 'info' },
+        );
+      }
     } catch (error) {
       console.error('Error deleting movie:', error);
       dispatch({ type: 'SET_ERROR', payload: 'Failed to delete movie' });
     } finally {
       dispatch({ type: 'SET_LOADING', payload: false });
     }
-  }, [state.user]);
+  }, [state.movies, state.user]);
 
   const toggleWatched = useCallback(async (docId, currentStatus) => {
     dispatch({ type: 'SET_LOADING', payload: true });
@@ -378,6 +435,23 @@ export const MovieProvider = ({ children }) => {
         await firebaseService.updateMovieStatus(docId, updates);
       }
       dispatch({ type: 'UPDATE_MOVIE', payload: { docId, ...updates } });
+
+      const title = movie?.title || 'İçerik';
+      if (newStatus) {
+        notifyFromBridge(
+          NOTIFICATION_TYPES.WATCHED,
+          'İzlendi olarak işaretlendi',
+          `${title} izlendi olarak işaretlendi.`,
+          { movieId: movie?.id, toastVariant: 'success' },
+        );
+      } else {
+        notifyFromBridge(
+          NOTIFICATION_TYPES.WATCHLIST,
+          'İzlenecekler listesine eklendi',
+          `${title} izlenecekler listesine eklendi.`,
+          { movieId: movie?.id, toastVariant: 'info' },
+        );
+      }
     } catch (error) {
       console.error('Error updating movie:', error);
       dispatch({ type: 'SET_ERROR', payload: 'Failed to update movie' });
@@ -388,6 +462,7 @@ export const MovieProvider = ({ children }) => {
 
   const toggleFavorite = useCallback(async (docId, currentStatus) => {
     dispatch({ type: 'SET_LOADING', payload: true });
+    const movie = state.movies.find(item => (item.docId || item.id) === docId);
     try {
       const now = new Date();
       const newStatus = !currentStatus;
@@ -404,13 +479,30 @@ export const MovieProvider = ({ children }) => {
         await firebaseService.updateMovieStatus(docId, updates);
       }
       dispatch({ type: 'UPDATE_MOVIE', payload: { docId, ...updates } });
+
+      const title = movie?.title || 'İçerik';
+      if (newStatus) {
+        notifyFromBridge(
+          NOTIFICATION_TYPES.FAVORITE,
+          'Favorilere eklendi',
+          `${title} favorilerine eklendi.`,
+          { movieId: movie?.id, toastVariant: 'success' },
+        );
+      } else {
+        notifyFromBridge(
+          NOTIFICATION_TYPES.FAVORITE,
+          'Favorilerden çıkarıldı',
+          `${title} favorilerden çıkarıldı.`,
+          { movieId: movie?.id, toastVariant: 'info' },
+        );
+      }
     } catch (error) {
       console.error('Error updating movie:', error);
       dispatch({ type: 'SET_ERROR', payload: 'Failed to update movie' });
     } finally {
       dispatch({ type: 'SET_LOADING', payload: false });
     }
-  }, [state.user]);
+  }, [state.movies, state.user]);
 
   const setReaction = useCallback(async (docId, reaction) => {
     dispatch({ type: 'SET_LOADING', payload: true });
@@ -442,6 +534,41 @@ export const MovieProvider = ({ children }) => {
       dispatch({ type: 'SET_LOADING', payload: false });
     }
   }, [state.movies, state.user]);
+
+  const setUserRating = useCallback(async (docId, rating) => {
+    dispatch({ type: 'SET_LOADING', payload: true });
+    const movie = state.movies.find(item => (item.docId || item.id) === docId);
+    try {
+      const now = new Date();
+      const cleanRating = Math.max(1, Math.min(10, Number(rating) || 0));
+      const updates = {
+        userRating: cleanRating,
+        personalRating: cleanRating,
+        ratingAt: now,
+        ratedAt: now,
+        updatedAt: now,
+        updated_at: now,
+      };
+
+      if (state.user) {
+        await firebaseService.updateMovieStatus(docId, updates);
+      }
+
+      dispatch({ type: 'UPDATE_MOVIE', payload: { docId, ...updates } });
+
+      notifyFromBridge(
+        NOTIFICATION_TYPES.RATING,
+        'Puan verildi',
+        `${movie?.title || 'İçerik'} için ${cleanRating} puan verdin.`,
+        { movieId: movie?.id, toastVariant: 'success' },
+      );
+    } catch (error) {
+      console.error('Error updating user rating:', error);
+      dispatch({ type: 'SET_ERROR', payload: 'Failed to update user rating' });
+    } finally {
+      dispatch({ type: 'SET_LOADING', payload: false });
+    }
+  }, [state.user]);
 
   const updateMediaProgress = useCallback(async (docId, progressUpdates) => {
     dispatch({ type: 'SET_LOADING', payload: true });
@@ -598,6 +725,7 @@ export const MovieProvider = ({ children }) => {
     toggleWatched,
     toggleFavorite,
     setReaction,
+    setUserRating,
     setWatchStatus,
     updateMediaProgress,
     advanceEpisode,

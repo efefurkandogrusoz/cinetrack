@@ -1,13 +1,33 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  BarChart3,
+  Clapperboard,
+  Heart,
+  Play,
+  Plus,
+  RefreshCw,
+  Sparkles,
+  Star,
+  TrendingUp,
+  Tv,
+} from 'lucide-react';
 import {
   ALL_GENRE_MAP,
   MOVIE_GENRE_MAP,
   TV_GENRE_MAP,
-  discoverMoviesByGenres,
-  discoverTvShowsByGenres,
+  fetchRecommendationCandidates,
+  getMediaTrailer,
 } from '../services/tmdb';
 import { useMovies } from '../context/MovieContext';
+import { useNotifications } from '../context/NotificationContext';
 import { getMediaKey, getMediaType, getMediaTypeLabel, isTvShow } from '../utils/media';
+import { NOTIFICATION_TYPES } from '../utils/notificationHelpers';
+import {
+  getInsightEmptyMessage,
+  getSmartRecommendations,
+  getUserTasteProfile,
+  saveRecentInsightRecommendations,
+} from '../utils/smartRecommendationHelpers';
 import MovieDetailsModal from './MovieDetailsModal';
 import '../styles/components/UserInsights.css';
 
@@ -15,6 +35,13 @@ const recommendationFilters = [
   { id: 'all', label: 'Tümü' },
   { id: 'movie', label: 'Filmler' },
   { id: 'tv', label: 'Diziler' },
+];
+
+const insightTabs = [
+  { id: 'overview', label: 'Genel Bakış' },
+  { id: 'genres', label: 'Tür Eğilimleri' },
+  { id: 'insights', label: 'Yorumlar' },
+  { id: 'recommendations', label: 'Öneriler' },
 ];
 
 const movieGenreAliases = {
@@ -61,36 +88,31 @@ const resolveGenreIdsForMedia = (genres, mediaType) => {
         const alias = aliases[genre.name];
         return alias ? findGenreIdByName(targetMap, alias) : null;
       })
-      .filter(Boolean)
+      .filter(Boolean),
   )].slice(0, 3);
 };
 
-const getItemDate = (item) => (
-  isTvShow(item)
-    ? item.firstAirDate || item.first_air_date || item.releaseDate || item.release_date
-    : item.releaseDate || item.release_date
-);
-
-const formatDate = (value) => {
-  if (!value) return 'Tarih yok';
-
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return 'Tarih yok';
-
-  return new Intl.DateTimeFormat('tr-TR', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  }).format(date);
+const getGenreInterest = (score, maxScore) => {
+  const ratio = maxScore > 0 ? score / maxScore : 0;
+  if (ratio >= 0.75) return { label: 'Güçlü', level: 'high' };
+  if (ratio >= 0.45) return { label: 'Orta', level: 'medium' };
+  return { label: 'Düşük', level: 'low' };
 };
 
 const UserInsights = () => {
   const { addMovie, movies, toggleFavorite } = useMovies();
-  const [recommendations, setRecommendations] = useState({ movie: [], tv: [] });
+  const { addNotification } = useNotifications();
+  const [recommendationGroups, setRecommendationGroups] = useState([]);
+  const [flatRecommendations, setFlatRecommendations] = useState([]);
   const [recommendationFilter, setRecommendationFilter] = useState('all');
+  const [activeTab, setActiveTab] = useState('overview');
   const [loading, setLoading] = useState(false);
   const [recommendationError, setRecommendationError] = useState(null);
+  const [recommendationEmptyReason, setRecommendationEmptyReason] = useState(null);
   const [selectedMovie, setSelectedMovie] = useState(null);
+  const [trailerItem, setTrailerItem] = useState(null);
+  const [trailerKey, setTrailerKey] = useState(null);
+  const [loadingTrailer, setLoadingTrailer] = useState(false);
 
   const existingByKey = useMemo(
     () => new Map(movies.map(movie => [getMediaKey(movie), movie])),
@@ -266,71 +288,164 @@ const UserInsights = () => {
     };
   }, [movies]);
 
+  const insightCards = useMemo(() => {
+    const cards = [];
+
+    if (analysis.topGenres[0]) {
+      cards.push({
+        id: 'top-genre',
+        icon: Heart,
+        title: 'En sevdiğin tür',
+        text: `${analysis.topGenres[0].name} türü en güçlü sinyalini veriyor.`,
+      });
+    }
+
+    cards.push({
+      id: 'watch-style',
+      icon: Clapperboard,
+      title: 'İzleme tarzın',
+      text: analysis.profileTitle,
+    });
+
+    cards.push({
+      id: 'rating-habit',
+      icon: Star,
+      title: 'Puan verme alışkanlığın',
+      text: analysis.averageRating > 0
+        ? `Ortalama ${analysis.averageRating.toFixed(1)} puan; beğendiklerinde ${analysis.likedAverageRating > 0 ? analysis.likedAverageRating.toFixed(1) : '-'}.`
+        : 'Henüz yeterli puan verisi yok.',
+    });
+
+    cards.push({
+      id: 'recommendation-type',
+      icon: Sparkles,
+      title: 'Sana uygun öneri tipi',
+      text: analysis.topGenres.length > 0
+        ? `${analysis.topGenres.slice(0, 2).map(genre => genre.name).join(' ve ')} odaklı öneriler.`
+        : 'Daha fazla favori ekledikçe öneriler kişiselleşir.',
+    });
+
+    analysis.notes.forEach((note, index) => {
+      cards.push({
+        id: `note-${index}`,
+        icon: TrendingUp,
+        title: 'Analiz notu',
+        text: note,
+      });
+    });
+
+    return cards.slice(0, 6);
+  }, [analysis]);
+
+  const tasteProfile = useMemo(
+    () => getUserTasteProfile(movies, analysis),
+    [movies, analysis],
+  );
+
+  const loadRecommendations = useCallback(async (isRefresh = false) => {
+    setLoading(true);
+    setRecommendationError(null);
+    setRecommendationEmptyReason(null);
+
+    try {
+      const excludedMediaKeys = movies.map(getMediaKey);
+      const candidates = await fetchRecommendationCandidates({
+        movieGenreIds: tasteProfile.movieRecommendationGenreIds,
+        tvGenreIds: tasteProfile.tvRecommendationGenreIds,
+        excludedKeys: excludedMediaKeys,
+        limit: 30,
+        page: isRefresh ? 2 : 1,
+        alternateSort: isRefresh,
+      });
+
+      const { groups, flat, emptyReason } = getSmartRecommendations(candidates, tasteProfile, {
+        refreshSeed: isRefresh ? Date.now() : 0,
+        maxPerCategory: 4,
+        minPerCategory: 2,
+      });
+
+      setRecommendationGroups(groups);
+      setFlatRecommendations(flat.map(entry => ({
+        ...entry.item,
+        recommendationReason: entry.reason,
+        recommendationScore: entry.score,
+      })));
+
+      if (emptyReason) {
+        setRecommendationEmptyReason(emptyReason);
+        setRecommendationGroups([]);
+        setFlatRecommendations([]);
+      } else if (flat.length === 0) {
+        setRecommendationError('Şu an yeni öneri bulunamadı.');
+      } else if (isRefresh) {
+        saveRecentInsightRecommendations(flat.map(entry => entry.item));
+        addNotification(
+          NOTIFICATION_TYPES.RECOMMENDATION,
+          'Yeni önerilerin hazır',
+          flat.length > 0
+            ? 'Zevk profiline göre güncellenmiş öneriler oluşturuldu.'
+            : 'Şu an farklı öneri bulunamadı.',
+          { toastVariant: flat.length > 0 ? 'success' : 'info' },
+        );
+      }
+    } catch {
+      setRecommendationGroups([]);
+      setFlatRecommendations([]);
+      setRecommendationError('API’den öneri sonucu alınamadı. Biraz sonra yeniden deneyebilirsin.');
+    } finally {
+      setLoading(false);
+    }
+  }, [addNotification, movies, tasteProfile]);
+
   useEffect(() => {
-    let cancelled = false;
+    if (activeTab !== 'recommendations') return undefined;
 
     const timer = window.setTimeout(() => {
-      setLoading(true);
-      setRecommendationError(null);
-
-      const excludedMediaKeys = movies.map(getMediaKey);
-      const movieRequest = analysis.movieRecommendationGenreIds.length > 0
-        ? discoverMoviesByGenres(analysis.movieRecommendationGenreIds, excludedMediaKeys)
-        : Promise.resolve([]);
-
-      Promise.all([
-        movieRequest,
-        discoverTvShowsByGenres(analysis.tvRecommendationGenreIds, excludedMediaKeys),
-      ])
-        .then(([movieResults, tvResults]) => {
-          if (cancelled) return;
-
-          setRecommendations({
-            movie: movieResults,
-            tv: tvResults,
-          });
-
-          if (movieResults.length === 0 && tvResults.length === 0) {
-            setRecommendationError('API’den öneri sonucu alınamadı. Biraz sonra yeniden deneyebilirsin.');
-          }
-        })
-        .catch(() => {
-          if (!cancelled) {
-            setRecommendations({ movie: [], tv: [] });
-            setRecommendationError('API’den öneri sonucu alınamadı. Biraz sonra yeniden deneyebilirsin.');
-          }
-        })
-        .finally(() => {
-          if (!cancelled) setLoading(false);
-        });
+      loadRecommendations(false);
     }, 0);
 
-    return () => {
-      cancelled = true;
-      window.clearTimeout(timer);
-    };
-  }, [analysis.movieRecommendationGenreIds, analysis.tvRecommendationGenreIds, movies]);
+    return () => window.clearTimeout(timer);
+  }, [
+    activeTab,
+    analysis.movieRecommendationGenreIds,
+    analysis.tvRecommendationGenreIds,
+    loadRecommendations,
+    movies.length,
+  ]);
+
+  const handleRefreshRecommendations = () => {
+    loadRecommendations(true);
+  };
 
   const formatRating = (value) => (value > 0 ? value.toFixed(1) : '-');
   const strongestScore = analysis.topGenres[0]?.score || 1;
-  const visibleRecommendations = recommendationFilter === 'all'
-    ? [...recommendations.movie, ...recommendations.tv]
-    : recommendations[recommendationFilter] || [];
-  const hasRecommendations = recommendations.movie.length > 0 || recommendations.tv.length > 0;
-  const recommendationTitle = recommendationFilter === 'tv'
-    ? 'Sana Uygun Dizi Önerileri'
-    : recommendationFilter === 'movie'
-      ? 'Sana Uygun Film Önerileri'
-      : 'Sana Uygun Film ve Dizi Önerileri';
+
+  const visibleRecommendations = useMemo(() => {
+    const items = flatRecommendations;
+    if (recommendationFilter === 'all') return items;
+    return items.filter(item => getMediaType(item) === recommendationFilter);
+  }, [flatRecommendations, recommendationFilter]);
+
+  const filteredGroups = useMemo(() => {
+    if (recommendationFilter === 'all') return recommendationGroups;
+
+    return recommendationGroups
+      .map(group => ({
+        ...group,
+        items: group.items.filter(entry => getMediaType(entry.item) === recommendationFilter),
+      }))
+      .filter(group => group.items.length > 0);
+  }, [recommendationGroups, recommendationFilter]);
+
   const recommendationHint = !analysis.hasFavoriteSignal
-    ? 'Zevkini analiz edebilmemiz için birkaç film veya dizi favorile. Şimdilik popüler dizilerden bazı öneriler gösteriyoruz.'
-    : 'Favorilerin, izleme durumun, tepkilerin ve tür eğilimlerin birlikte değerlendirildi.';
+    ? 'Daha isabetli öneriler için birkaç film veya dizi favorile.'
+    : 'Favorilerin, puanların, tepkilerin ve tür eğilimlerin skor bazlı değerlendirildi.';
 
   const openRecommendation = (movie) => {
     setSelectedMovie(movie);
   };
 
-  const addRecommendation = (item, favorite = false) => {
+  const addRecommendation = async (item, favorite = false) => {
     const payload = isTvShow(item)
       ? {
         ...item,
@@ -346,11 +461,43 @@ const UserInsights = () => {
         ...item,
         mediaType: 'movie',
         media_type: 'movie',
+        watchStatus: 'watchlist',
         favorite,
         isFavorite: favorite,
       };
 
-    addMovie(payload);
+    await addMovie(payload);
+
+    if (!favorite) {
+      addNotification(
+        NOTIFICATION_TYPES.WATCHLIST,
+        'Listeye Eklendi',
+        'Önerilen içerik izlenecekler listesine eklendi.',
+        { toastVariant: 'success' },
+      );
+    }
+  };
+
+  const openTrailer = async (item) => {
+    setTrailerItem(item);
+    setTrailerKey(item.trailerKey || null);
+
+    if (item.trailerKey) return;
+
+    setLoadingTrailer(true);
+    try {
+      const key = await getMediaTrailer(item.id, item.mediaType);
+      setTrailerKey(key);
+    } finally {
+      setLoadingTrailer(false);
+    }
+  };
+
+  const scrollToDiscover = () => {
+    document.querySelector('.discovery-section')?.scrollIntoView({
+      behavior: 'smooth',
+      block: 'start',
+    });
   };
 
   const handleFavoriteRecommendation = (item) => {
@@ -375,187 +522,372 @@ const UserInsights = () => {
     }
   };
 
-  return (
-    <section className="insights-section">
-      <div className="insights-summary">
-        <div>
-          <p className="eyebrow">Zevk Analizi</p>
-          <h3>{analysis.profileTitle}</h3>
-          <p>
-            Analiz; izleme durumunu, favorilerini, beğeni tepkilerini, tür tekrarlarını ve TMDB puanlarını film ve
-            diziler için birlikte okuyarak güncellenir.
-          </p>
+  const summaryStats = [
+    {
+      id: 'profile',
+      label: 'Kayıtlı profil',
+      value: String(analysis.totalCount),
+      hint: `${analysis.movieCount} film · ${analysis.tvCount} dizi`,
+    },
+    {
+      id: 'watched',
+      label: 'İzleme oranı',
+      value: `${analysis.watchedRate}%`,
+      hint: `${analysis.watchedCount} tamamlandı`,
+    },
+    {
+      id: 'rating',
+      label: 'Ortalama puan',
+      value: formatRating(analysis.averageRating),
+      hint: analysis.likedAverageRating > 0 ? `Beğenilen: ${formatRating(analysis.likedAverageRating)}` : 'Puan verisi az',
+    },
+    {
+      id: 'strength',
+      label: 'Baskın özellik',
+      value: analysis.topGenres[0]?.name || '—',
+      hint: analysis.profileTitle,
+    },
+    {
+      id: 'confidence',
+      label: 'Analiz güveni',
+      value: `${analysis.confidence}%`,
+      hint: analysis.confidenceLabel,
+    },
+  ];
+
+  const renderRecommendationCard = (movie) => {
+    const mediaKey = getMediaKey(movie);
+    const existing = existingByKey.get(mediaKey);
+    const alreadyFavorite = Boolean(existing?.favorite || existing?.isFavorite);
+    const reason = movie.recommendationReason || 'Zevk profiline uygun bir öneri.';
+    const year = movie.year && movie.year !== 'N/A' ? movie.year : null;
+
+    return (
+      <article
+        className="recommendation-card-smart"
+        key={mediaKey}
+        onClick={() => openRecommendation(movie)}
+        onKeyDown={event => handleRecommendationKeyDown(event, movie)}
+        role="button"
+        tabIndex={0}
+        aria-label={`${movie.title} detaylarını aç`}
+      >
+        <div className="recommendation-card-poster">
+          {movie.poster ? (
+            <img src={movie.poster} alt="" />
+          ) : (
+            <span className="poster-placeholder">{getMediaTypeLabel(movie)}</span>
+          )}
+          {movie.rating > 0 && <em>★ {Number(movie.rating).toFixed(1)}</em>}
+          <span className="recommendation-type-badge">{getMediaTypeLabel(movie)}</span>
         </div>
-
-        <div className="insight-metrics">
-          <span><strong>{analysis.confidence}%</strong> {analysis.confidenceLabel}</span>
-          <span><strong>{analysis.watchedRate}%</strong> izleme oranı</span>
-          <span><strong>{analysis.reactionCoverage}%</strong> tepki kapsamı</span>
-        </div>
-      </div>
-
-      <div className="taste-grid">
-        <article className="taste-card primary">
-          <span>Özet</span>
-          <strong>{analysis.totalCount} kayıtlık profil</strong>
-          <p>{analysis.movieCount} film, {analysis.tvCount} dizi; {analysis.favoriteCount} favori.</p>
-        </article>
-        <article className="taste-card">
-          <span>Favori dağılımı</span>
-          <strong>{analysis.favoriteMovieCount} / {analysis.favoriteTvCount}</strong>
-          <p>Favori filmlerin ve dizilerin tür puanlarını doğrudan etkiler.</p>
-        </article>
-        <article className="taste-card">
-          <span>Ortalama puan</span>
-          <strong>{formatRating(analysis.averageRating)}</strong>
-          <p>Beğendiğin yapımlarda ortalama {formatRating(analysis.likedAverageRating)}.</p>
-        </article>
-        <article className="taste-card">
-          <span>Süre eğilimi</span>
-          <strong>{analysis.averageRuntime ? `${analysis.averageRuntime} dk` : '-'}</strong>
-          <p>{analysis.runtimeProfile}</p>
-        </article>
-      </div>
-
-      {analysis.topGenres.length > 0 ? (
-        <div className="genre-analysis">
-          <div className="insight-subhead">
-            <h4>Tür eğilimi</h4>
-            <span>Olumlu sinyale göre</span>
-          </div>
-          <div className="genre-score-list">
-            {analysis.topGenres.map(genre => (
-              <div className="genre-score-item" key={genre.key}>
-                <div>
-                  <strong>{genre.name}</strong>
-                  <span>{genre.liked} beğeni, {genre.favorite} favori, {genre.movie} film, {genre.tv} dizi</span>
-                </div>
-                <div className="genre-score-track" aria-hidden="true">
-                  <span style={{ width: `${Math.max(18, Math.round((genre.score / strongestScore) * 100))}%` }} />
-                </div>
-              </div>
-            ))}
-          </div>
-          {analysis.avoidedGenres.length > 0 && (
-            <div className="genre-caution">
-              <span>Daha seçici olduğun türler</span>
-              <strong>{analysis.avoidedGenres.map(genre => genre.name).join(', ')}</strong>
+        <div className="recommendation-card-body">
+          <strong>{movie.title}</strong>
+          <span className="recommendation-card-meta">
+            {movie.genres?.[0] || 'Tür yok'}
+            {year ? ` · ${year}` : ''}
+          </span>
+          <small className="recommendation-reason">{reason}</small>
+          <div className="recommendation-card-actions">
+            <button
+              type="button"
+              className="action-primary"
+              onClick={(event) => {
+                event.stopPropagation();
+                openRecommendation(movie);
+              }}
+            >
+              Detayları Gör
+            </button>
+            <div className="recommendation-card-actions-grid">
+              <button
+                type="button"
+                disabled={Boolean(existing)}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  addRecommendation(movie);
+                }}
+              >
+                <Plus size={12} aria-hidden="true" />
+                {existing ? 'Listede' : 'Listeye Ekle'}
+              </button>
+              <button
+                type="button"
+                className="secondary"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  openTrailer(movie);
+                }}
+              >
+                <Play size={12} aria-hidden="true" />
+                Fragman
+              </button>
+              <button
+                type="button"
+                className="ghost"
+                disabled={alreadyFavorite}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  handleFavoriteRecommendation(movie);
+                }}
+              >
+                {alreadyFavorite ? 'Favoride' : 'Favoriye Ekle'}
+              </button>
             </div>
+          </div>
+        </div>
+      </article>
+    );
+  };
+
+  const renderRecommendations = () => (
+    <div className="insights-panel recommendations-panel">
+      <div className="insights-panel-head">
+        <div>
+          <h4>Sana Özel Öneriler</h4>
+          <p>{recommendationHint}</p>
+        </div>
+        <div className="recommendation-head-actions">
+          {loading && <span className="insights-loading">Yükleniyor</span>}
+          <button
+            type="button"
+            className="insights-refresh-btn"
+            onClick={handleRefreshRecommendations}
+            disabled={loading}
+          >
+            <RefreshCw size={14} aria-hidden="true" />
+            Önerileri Yenile
+          </button>
+        </div>
+      </div>
+
+      <div className="recommendation-tabs" role="tablist" aria-label="Öneri türü">
+        {recommendationFilters.map(filter => (
+          <button
+            key={filter.id}
+            type="button"
+            className={recommendationFilter === filter.id ? 'active' : ''}
+            onClick={() => setRecommendationFilter(filter.id)}
+            role="tab"
+            aria-selected={recommendationFilter === filter.id}
+          >
+            {filter.label}
+          </button>
+        ))}
+      </div>
+
+      {loading ? (
+        <p className="insights-empty">Öneriler hazırlanıyor…</p>
+      ) : visibleRecommendations.length > 0 ? (
+        <div className="recommendation-categories">
+          {filteredGroups.length > 0 ? (
+            filteredGroups.map(group => (
+              <section className="recommendation-category" key={group.id}>
+                {filteredGroups.length > 1 && <h5>{group.title}</h5>}
+                <div className="recommendation-scroll">
+                  {group.items.map(entry => renderRecommendationCard({
+                    ...entry.item,
+                    recommendationReason: entry.reason,
+                  }))}
+                </div>
+              </section>
+            ))
+          ) : (
+            <section className="recommendation-category">
+              <div className="recommendation-scroll">
+                {visibleRecommendations.map(movie => renderRecommendationCard(movie))}
+              </div>
+            </section>
           )}
         </div>
       ) : (
-        <p className="insight-empty">Zevkini analiz edebilmemiz için birkaç film veya dizi favorile.</p>
-      )}
-
-      {analysis.notes.length > 0 && (
-        <div className="insight-notes">
-          {analysis.notes.map(note => <p key={note}>{note}</p>)}
-        </div>
-      )}
-
-      <div className="recommendation-block">
-        <div className="recommendation-head">
-          <div>
-            <h4>{recommendationTitle}</h4>
-            <p>{recommendationHint}</p>
-          </div>
-          {loading && <span>Yükleniyor</span>}
-        </div>
-
-        <div className="recommendation-tabs" role="tablist" aria-label="Öneri türü">
-          {recommendationFilters.map(filter => (
-            <button
-              key={filter.id}
-              type="button"
-              className={recommendationFilter === filter.id ? 'active' : ''}
-              onClick={() => setRecommendationFilter(filter.id)}
-              role="tab"
-              aria-selected={recommendationFilter === filter.id}
-            >
-              {filter.label}
-            </button>
-          ))}
-        </div>
-
-        {visibleRecommendations.length > 0 ? (
-          <div className="recommendation-row">
-            {visibleRecommendations.map(movie => {
-              const mediaKey = getMediaKey(movie);
-              const existing = existingByKey.get(mediaKey);
-              const alreadyFavorite = Boolean(existing?.favorite || existing?.isFavorite);
-
-              return (
-                <article
-                  className="recommendation-card"
-                  key={mediaKey}
-                  onClick={() => openRecommendation(movie)}
-                  onKeyDown={event => handleRecommendationKeyDown(event, movie)}
-                  role="button"
-                  tabIndex={0}
-                  aria-label={`${movie.title} detaylarını aç`}
-                >
-                  <div className="recommendation-poster">
-                    {movie.poster ? (
-                      <img src={movie.poster} alt={movie.title} />
-                    ) : (
-                      <span className="recommendation-poster-placeholder">{getMediaTypeLabel(movie)}</span>
-                    )}
-                    {movie.rating > 0 && <span className="recommendation-rating">{movie.rating.toFixed(1)}</span>}
-                    <span className="recommendation-media-badge">{getMediaTypeLabel(movie)}</span>
-                  </div>
-
-                  <div className="recommendation-copy">
-                    <div className="recommendation-title-line">
-                      <h5>{movie.title}</h5>
-                      <span>{formatDate(getItemDate(movie))}</span>
-                    </div>
-
-                    {movie.genres?.length > 0 && (
-                      <div className="recommendation-genres">
-                        {movie.genres.slice(0, 2).map(genre => <span key={genre}>{genre}</span>)}
-                      </div>
-                    )}
-
-                    <p>{movie.overview || (isTvShow(movie) ? 'Bu dizi için açıklama bulunamadı.' : 'Bu film için açıklama bulunamadı.')}</p>
-
-                    <div className="recommendation-actions">
-                      <button
-                        type="button"
-                        disabled={Boolean(existing)}
-                        onClick={event => {
-                          event.stopPropagation();
-                          addRecommendation(movie);
-                        }}
-                      >
-                        {existing ? 'Listede' : 'Listeye Ekle'}
-                      </button>
-                      <button
-                        className="secondary"
-                        type="button"
-                        disabled={alreadyFavorite}
-                        onClick={event => {
-                          event.stopPropagation();
-                          handleFavoriteRecommendation(movie);
-                        }}
-                      >
-                        {alreadyFavorite ? 'Favoride' : 'Favoriye Ekle'}
-                      </button>
-                    </div>
-                  </div>
-                </article>
-              );
-            })}
-          </div>
-        ) : (
-          <p className="recommendation-empty">
-            {loading
-              ? 'Öneriler hazırlanıyor.'
-              : recommendationError || (hasRecommendations ? 'Bu filtre için öneri bulunamadı.' : 'Popüler dizilerden bazı öneriler yüklenemedi.')}
+        <div className="insights-empty-state">
+          <p>
+            {recommendationError
+              || getInsightEmptyMessage(recommendationEmptyReason)
+              || 'Şu an yeni öneri bulunamadı.'}
           </p>
+          <div className="insights-empty-actions">
+            <button type="button" className="insights-refresh-btn" onClick={handleRefreshRecommendations}>
+              Önerileri Yenile
+            </button>
+            <button type="button" className="insights-more-btn" onClick={scrollToDiscover}>
+              Keşfet
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  return (
+    <section className="insights-section insights-compact" aria-labelledby="insights-title">
+      <header className="insights-header">
+        <div>
+          <p className="eyebrow">Zevk Analizi</p>
+          <h3 id="insights-title">Zevk Analizin</h3>
+          <p className="insights-lead">
+            İzleme alışkanlıkların, favori türlerin ve sana özel önerilerin burada.
+          </p>
+        </div>
+        <span className="insights-profile-badge">{analysis.profileTitle}</span>
+      </header>
+
+      <div className="insights-summary-row">
+        {summaryStats.map(stat => (
+          <article className="insights-stat" key={stat.id}>
+            <span>{stat.label}</span>
+            <strong>{stat.value}</strong>
+            <small>{stat.hint}</small>
+          </article>
+        ))}
+      </div>
+
+      <div className="insights-tabs" role="tablist" aria-label="Zevk analizi sekmeleri">
+        {insightTabs.map(tab => (
+          <button
+            key={tab.id}
+            type="button"
+            role="tab"
+            aria-selected={activeTab === tab.id}
+            className={activeTab === tab.id ? 'active' : ''}
+            onClick={() => setActiveTab(tab.id)}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="insights-tab-panels">
+        {activeTab === 'overview' && (
+          <div className="insights-panel overview-panel" role="tabpanel">
+            <div className="overview-grid">
+              <article className="overview-highlight">
+                <BarChart3 size={18} aria-hidden="true" />
+                <div>
+                  <span>İzleme alışkanlığı</span>
+                  <strong>{analysis.watchedRate}% tamamlanma</strong>
+                  <p>{analysis.watchedCount} izlendi · {analysis.watchlistCount} bekliyor</p>
+                </div>
+              </article>
+              <article className="overview-highlight">
+                <Heart size={18} aria-hidden="true" />
+                <div>
+                  <span>Favori dağılımı</span>
+                  <strong>{analysis.favoriteCount} favori</strong>
+                  <p>{analysis.favoriteMovieCount} film · {analysis.favoriteTvCount} dizi</p>
+                </div>
+              </article>
+              <article className="overview-highlight">
+                <Tv size={18} aria-hidden="true" />
+                <div>
+                  <span>Tepki kapsamı</span>
+                  <strong>{analysis.reactionCoverage}%</strong>
+                  <p>{analysis.likedCount} beğeni · {analysis.dislikedCount} beğenmeme</p>
+                </div>
+              </article>
+              <article className="overview-highlight">
+                <TrendingUp size={18} aria-hidden="true" />
+                <div>
+                  <span>Süre eğilimi</span>
+                  <strong>{analysis.averageRuntime ? `${analysis.averageRuntime} dk` : '—'}</strong>
+                  <p>{analysis.runtimeProfile}</p>
+                </div>
+              </article>
+            </div>
+          </div>
         )}
+
+        {activeTab === 'genres' && (
+          <div className="insights-panel genres-panel" role="tabpanel">
+            {analysis.topGenres.length > 0 ? (
+              <>
+                <div className="genre-compact-list">
+                  {analysis.topGenres.map(genre => {
+                    const width = Math.max(12, Math.round((genre.score / strongestScore) * 100));
+                    const interest = getGenreInterest(genre.score, strongestScore);
+
+                    return (
+                      <div className="genre-compact-item" key={genre.key}>
+                        <div className="genre-compact-head">
+                          <strong>{genre.name}</strong>
+                          <span className={`genre-interest genre-interest--${interest.level}`}>
+                            {interest.label} ilgi
+                          </span>
+                        </div>
+                        <div className="genre-compact-track" aria-hidden="true">
+                          <span style={{ width: `${width}%` }} />
+                        </div>
+                        <p>{genre.liked} beğeni · {genre.favorite} favori · {genre.movie + genre.tv} kayıt</p>
+                      </div>
+                    );
+                  })}
+                </div>
+                {analysis.avoidedGenres.length > 0 && (
+                  <p className="genre-caution-compact">
+                    Daha seçici: {analysis.avoidedGenres.map(genre => genre.name).join(', ')}
+                  </p>
+                )}
+              </>
+            ) : (
+              <p className="insights-empty">Zevkini analiz edebilmemiz için birkaç film veya dizi favorile.</p>
+            )}
+          </div>
+        )}
+
+        {activeTab === 'insights' && (
+          <div className="insights-panel notes-panel" role="tabpanel">
+            {insightCards.length > 0 ? (
+              <div className="insight-card-grid">
+                {insightCards.map(card => {
+                  const Icon = card.icon;
+                  return (
+                    <article className="insight-mini-card" key={card.id}>
+                      <Icon size={16} aria-hidden="true" />
+                      <div>
+                        <strong>{card.title}</strong>
+                        <p>{card.text}</p>
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="insights-empty">Analiz için biraz daha veri biriktir.</p>
+            )}
+          </div>
+        )}
+
+        {activeTab === 'recommendations' && renderRecommendations()}
       </div>
 
       {selectedMovie && <MovieDetailsModal movie={selectedMovie} onClose={() => setSelectedMovie(null)} />}
+
+      {trailerItem && (
+        <div className="feature-trailer-layer" role="dialog" aria-modal="true">
+          <button
+            type="button"
+            className="feature-trailer-backdrop"
+            onClick={() => {
+              setTrailerItem(null);
+              setTrailerKey(null);
+            }}
+            aria-label="Kapat"
+          />
+          <div className="feature-trailer-box">
+            {trailerKey ? (
+              <iframe
+                title={`${trailerItem.title} fragman`}
+                src={`https://www.youtube.com/embed/${trailerKey}?autoplay=1&rel=0`}
+                allow="autoplay; encrypted-media; fullscreen"
+                allowFullScreen
+              />
+            ) : (
+              <p>{loadingTrailer ? 'Fragman yükleniyor…' : 'Fragman bulunamadı.'}</p>
+            )}
+          </div>
+        </div>
+      )}
     </section>
   );
 };

@@ -1,0 +1,257 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return signedIn() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return signedIn()
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    function changedOnly(fields) {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(fields);
+    }
+
+    function didNotChange(fields) {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny(fields);
+    }
+
+    function isDeleted() {
+      return resource.data.keys().hasAny(['deleted']) && resource.data.deleted == true;
+    }
+
+    function currentLikedBy() {
+      return resource.data.keys().hasAny(['likedBy']) && resource.data.likedBy is list
+        ? resource.data.likedBy
+        : [];
+    }
+
+    function likedByChangedOnlySelf() {
+      let before = currentLikedBy();
+      let after = request.resource.data.likedBy;
+      let added = after.toSet().difference(before.toSet());
+      let removed = before.toSet().difference(after.toSet());
+
+      return after is list
+        && after.size() == after.toSet().size()
+        && added.hasOnly([request.auth.uid])
+        && removed.hasOnly([request.auth.uid])
+        && added.size() + removed.size() == 1;
+    }
+
+    function hasValidCommentText() {
+      return request.resource.data.text is string
+        && request.resource.data.text.size() >= 2
+        && request.resource.data.text.size() <= 500;
+    }
+
+    function hasValidCommonCommentFields() {
+      return request.resource.data.userId == request.auth.uid
+        && request.resource.data.username is string
+        && request.resource.data.username.size() > 0
+        && request.resource.data.mediaId is string
+        && request.resource.data.mediaType in ['movie', 'tv']
+        && request.resource.data.mediaTitle is string
+        && hasValidCommentText()
+        && request.resource.data.isSpoiler is bool
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time
+        && request.resource.data.isEdited == false
+        && request.resource.data.editedAt == null
+        && request.resource.data.likedBy is list
+        && request.resource.data.likedBy.size() == 0;
+    }
+
+    function canCreateComment() {
+      return signedIn()
+        && request.resource.data.keys().hasOnly([
+          'mediaId',
+          'mediaType',
+          'mediaTitle',
+          'userId',
+          'username',
+          'text',
+          'isSpoiler',
+          'createdAt',
+          'updatedAt',
+          'isEdited',
+          'editedAt',
+          'likedBy',
+        ])
+        && hasValidCommonCommentFields();
+    }
+
+    function canCreateReply(commentId) {
+      return signedIn()
+        && exists(/databases/$(database)/documents/comments/$(commentId))
+        && !(
+          get(/databases/$(database)/documents/comments/$(commentId)).data.keys().hasAny(['deleted'])
+          && get(/databases/$(database)/documents/comments/$(commentId)).data.deleted == true
+        )
+        && request.resource.data.keys().hasOnly([
+          'commentId',
+          'mediaId',
+          'mediaType',
+          'mediaTitle',
+          'userId',
+          'username',
+          'text',
+          'isSpoiler',
+          'createdAt',
+          'updatedAt',
+          'isEdited',
+          'editedAt',
+          'likedBy',
+        ])
+        && request.resource.data.commentId == commentId
+        && hasValidCommonCommentFields();
+    }
+
+    function canEditOwnText() {
+      return signedIn()
+        && resource.data.userId == request.auth.uid
+        && !isDeleted()
+        && changedOnly(['text', 'isSpoiler', 'updatedAt', 'isEdited', 'editedAt'])
+        && hasValidCommentText()
+        && request.resource.data.isSpoiler is bool
+        && request.resource.data.isEdited == true
+        && request.resource.data.editedAt == request.time
+        && request.resource.data.updatedAt == request.time;
+    }
+
+    function canSoftDeleteOwnComment() {
+      return signedIn()
+        && resource.data.userId == request.auth.uid
+        && !isDeleted()
+        && changedOnly(['text', 'deleted', 'deletedAt', 'deletedBy'])
+        && request.resource.data.text == ''
+        && request.resource.data.deleted == true
+        && request.resource.data.deletedBy == request.auth.uid
+        && request.resource.data.deletedAt == request.time;
+    }
+
+    function canToggleLike() {
+      return signedIn()
+        && !isDeleted()
+        && changedOnly(['likedBy'])
+        && request.resource.data.likedBy is list
+        && likedByChangedOnlySelf();
+    }
+
+    function canCreateReport() {
+      return signedIn()
+        && request.resource.data.keys().hasOnly([
+          'commentId',
+          'replyId',
+          'targetType',
+          'targetRefPath',
+          'commentText',
+          'commentMediaTitle',
+          'isSpoiler',
+          'likes',
+          'reportedUserId',
+          'reportedUsername',
+          'reporterUserId',
+          'reporterUsername',
+          'reason',
+          'description',
+          'status',
+          'createdAt',
+        ])
+        && request.resource.data.commentId is string
+        && (request.resource.data.replyId == null || request.resource.data.replyId is string)
+        && request.resource.data.targetType in ['comment', 'reply']
+        && request.resource.data.targetRefPath is string
+        && request.resource.data.commentText is string
+        && request.resource.data.commentText.size() <= 500
+        && request.resource.data.commentMediaTitle is string
+        && request.resource.data.isSpoiler is bool
+        && request.resource.data.likes is number
+        && request.resource.data.reportedUserId is string
+        && request.resource.data.reportedUsername is string
+        && request.resource.data.reporterUserId == request.auth.uid
+        && request.resource.data.reporterUsername is string
+        && request.resource.data.reason in ['Spoiler', 'Hakaret / küfür', 'Spam', 'Uygunsuz içerik', 'Diğer']
+        && request.resource.data.description is string
+        && request.resource.data.description.size() <= 280
+        && request.resource.data.status == 'pending'
+        && request.resource.data.createdAt == request.time;
+    }
+
+    match /users/{userId} {
+      allow read: if true;
+      allow create: if isOwner(userId)
+        && request.resource.data.uid == userId
+        && !request.resource.data.keys().hasAny(['role', 'disabled']);
+      allow update: if isAdmin()
+        || (
+          isOwner(userId)
+          && resource.data.uid == userId
+          && request.resource.data.uid == userId
+          && didNotChange(['role', 'disabled'])
+        );
+      allow delete: if false;
+    }
+
+    match /movies/{movieId} {
+      allow read: if isAdmin()
+        || (signedIn() && resource.data.userId == request.auth.uid);
+      allow create: if signedIn()
+        && request.resource.data.userId == request.auth.uid;
+      allow update: if signedIn()
+        && resource.data.userId == request.auth.uid
+        && request.resource.data.userId == resource.data.userId;
+      allow delete: if signedIn()
+        && resource.data.userId == request.auth.uid;
+    }
+
+    match /comments/{commentId} {
+      allow read: if true;
+      allow create: if canCreateComment();
+      allow update: if canEditOwnText()
+        || canSoftDeleteOwnComment()
+        || canToggleLike();
+      allow delete: if isAdmin();
+
+      match /replies/{replyId} {
+        allow read: if true;
+        allow create: if canCreateReply(commentId);
+        allow update: if canEditOwnText()
+          || canToggleLike();
+        allow delete: if isAdmin()
+          || (signedIn() && resource.data.userId == request.auth.uid);
+      }
+    }
+
+    match /{path=**}/replies/{replyId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    match /reports/{reportId} {
+      allow create: if canCreateReport();
+      allow read, update, delete: if isAdmin();
+    }
+
+    match /featuredMovies/{featuredMovieId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /homepageConfig/{configId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

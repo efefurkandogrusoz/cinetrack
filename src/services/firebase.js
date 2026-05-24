@@ -16,8 +16,11 @@ import {
 import {
   getAuth,
   signInWithEmailAndPassword,
+  signInWithPopup,
   signOut,
   createUserWithEmailAndPassword,
+  sendPasswordResetEmail,
+  GoogleAuthProvider,
   onAuthStateChanged,
   updateEmail,
   updatePassword,
@@ -63,6 +66,9 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app);
 export const auth = getAuth(app);
+const googleProvider = new GoogleAuthProvider();
+googleProvider.setCustomParameters({ prompt: 'select_account' });
+
 const authPersistenceReady = setPersistence(auth, browserLocalPersistence).catch((error) => {
   console.error('Auth persistence error:', error);
 });
@@ -91,6 +97,12 @@ const getAuthCreatedAt = (user) => {
   return null;
 };
 
+const getUserAuthProvider = (user) => (
+  user?.providerData?.some(provider => provider.providerId === 'google.com')
+    ? 'google'
+    : 'password'
+);
+
 const saveUserProfile = async (user, extra = {}) => {
   const displayName = extra.displayName || user.displayName || user.email?.split('@')[0] || 'Kullanıcı';
   const createdAt = extra.createdAt ?? getAuthCreatedAt(user);
@@ -99,7 +111,7 @@ const saveUserProfile = async (user, extra = {}) => {
     email: user.email,
     displayName,
     photoURL: user.photoURL || null,
-    provider: 'password',
+    provider: extra.provider || getUserAuthProvider(user),
     updatedAt: serverTimestamp(),
     ...extra,
   };
@@ -113,6 +125,22 @@ const saveUserProfile = async (user, extra = {}) => {
   }
 
   await setDoc(doc(db, USERS_COLLECTION, user.uid), profileData, { merge: true });
+};
+
+const createGoogleUserProfileIfMissing = async (user) => {
+  const userRef = doc(db, USERS_COLLECTION, user.uid);
+  const snapshot = await getDoc(userRef);
+
+  if (snapshot.exists()) return;
+
+  await setDoc(userRef, {
+    uid: user.uid,
+    username: user.displayName || 'Google Kullanıcısı',
+    email: user.email,
+    photoURL: user.photoURL || '',
+    provider: 'google',
+    createdAt: serverTimestamp(),
+  });
 };
 
 const withTimeout = (promise, timeoutMs, message) => {
@@ -135,6 +163,13 @@ const saveUserProfileSafely = (user, extra = {}) => {
 export const syncCurrentUserProfileMetadata = (user) => {
   const createdAt = getAuthCreatedAt(user);
   if (!user || !createdAt) return;
+
+  if (getUserAuthProvider(user) === 'google') {
+    createGoogleUserProfileIfMissing(user).catch((error) => {
+      console.warn('Google user profile could not be initialized:', error);
+    });
+    return;
+  }
 
   saveUserProfileSafely(user, { createdAt });
 };
@@ -251,6 +286,27 @@ export const loginUser = async (email, password, rememberSession = true) => {
     return userCredential.user;
   } catch (error) {
     console.error('Login error:', error);
+    throw error;
+  }
+};
+
+export const signInWithGoogle = async (rememberSession = true) => {
+  try {
+    await setAuthPersistence(rememberSession);
+    const userCredential = await signInWithPopup(auth, googleProvider);
+    await createGoogleUserProfileIfMissing(userCredential.user);
+    return userCredential.user;
+  } catch (error) {
+    console.error('Google login error:', error);
+    throw error;
+  }
+};
+
+export const resetUserPassword = async (email) => {
+  try {
+    await sendPasswordResetEmail(auth, email.trim());
+  } catch (error) {
+    console.error('Password reset error:', error);
     throw error;
   }
 };
@@ -393,6 +449,8 @@ export default {
   updateMovieStatus,
   registerUser,
   loginUser,
+  signInWithGoogle,
+  resetUserPassword,
   logoutUser,
   onUserStateChanged,
   getUserProfile,

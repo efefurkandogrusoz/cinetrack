@@ -51,16 +51,29 @@
   display: flex;
   flex-direction: column;
   width: min(400px, 100vw);
+  max-width: 100%;
   height: 100vh;
+  height: 100svh;
+  min-width: 0;
+  overflow: hidden;
   border-left: 1px solid rgba(255, 255, 255, 0.08);
   background: linear-gradient(180deg, #161618 0%, #0c0c0e 100%);
   box-shadow: -20px 0 60px rgba(0, 0, 0, 0.5);
-  transform: translateX(100%);
-  transition: transform 0.32s cubic-bezier(0.4, 0, 0.2, 1);
+  pointer-events: none;
+  transform: translate3d(100%, 0, 0);
+  transition:
+    transform 0.32s cubic-bezier(0.4, 0, 0.2, 1),
+    visibility 0s linear 0.32s;
+  visibility: hidden;
 }
 
 .notification-panel.open {
-  transform: translateX(0);
+  pointer-events: auto;
+  transform: translate3d(0, 0, 0);
+  transition:
+    transform 0.32s cubic-bezier(0.4, 0, 0.2, 1),
+    visibility 0s linear 0s;
+  visibility: visible;
 }
 
 .notification-panel-head {
@@ -146,6 +159,7 @@
 
 .notification-list {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
   padding: 0 12px 18px;
 }
@@ -225,4 +239,62 @@
   color: #8a8a90;
   font-size: 12px;
   line-height: 1.45;
+}
+
+@media (max-width: 640px) {
+  .notification-panel-backdrop {
+    z-index: 1450;
+  }
+
+  .notification-panel {
+    top: auto;
+    right: 12px;
+    bottom: 12px;
+    left: 12px;
+    z-index: 1500;
+    width: auto;
+    max-width: calc(100vw - 24px);
+    height: auto;
+    max-height: calc(100svh - 24px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 16px;
+    box-shadow: 0 -20px 70px rgba(0, 0, 0, 0.56);
+    transform: translate3d(0, calc(100% + 28px), 0);
+  }
+
+  .notification-panel.open {
+    transform: translate3d(0, 0, 0);
+  }
+
+  .notification-panel-head {
+    padding: 16px 14px 10px;
+  }
+
+  .notification-panel-actions {
+    padding: 0 14px 10px;
+  }
+
+  .notification-filters {
+    padding: 0 14px 10px;
+  }
+
+  .notification-list {
+    max-height: min(58svh, 460px);
+    padding: 0 10px 14px;
+  }
+}
+
+@media (max-width: 380px) {
+  .notification-panel-actions {
+    flex-direction: column;
+  }
+
+  .notification-item {
+    grid-template-columns: minmax(0, 1fr) 34px;
+  }
+
+  .notification-item-delete {
+    width: 30px;
+    margin-right: 6px;
+  }
 }

@@ -20,7 +20,7 @@ import {
 } from '../services/tmdb';
 import { useMovies } from '../context/MovieContext';
 import { useNotifications } from '../context/NotificationContext';
-import { getMediaKey, getMediaType, getMediaTypeLabel, isTvShow } from '../utils/media';
+import { getMediaKey, getMediaType, getMediaTypeLabel, getTvProgress, isTvShow } from '../utils/media';
 import { NOTIFICATION_TYPES } from '../utils/notificationHelpers';
 import {
   getInsightEmptyMessage,
@@ -97,6 +97,162 @@ const getGenreInterest = (score, maxScore) => {
   if (ratio >= 0.75) return { label: 'Güçlü', level: 'high' };
   if (ratio >= 0.45) return { label: 'Orta', level: 'medium' };
   return { label: 'Düşük', level: 'low' };
+};
+
+const readPositiveNumber = (value) => {
+  if (Array.isArray(value)) {
+    const values = value
+      .map(readPositiveNumber)
+      .filter(number => number > 0);
+
+    if (values.length === 0) return 0;
+    return values.reduce((total, number) => total + number, 0) / values.length;
+  }
+
+  if (typeof value === 'number') {
+    return Number.isFinite(value) && value > 0 ? value : 0;
+  }
+
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase().replace(',', '.');
+    if (!normalized) return 0;
+
+    const hourMatch = normalized.match(/(\d+(?:\.\d+)?)\s*(h|hour|saat)/);
+    const minuteMatch = normalized.match(/(\d+(?:\.\d+)?)\s*(m|min|dk|dakika)/);
+
+    if (hourMatch || minuteMatch) {
+      const hours = hourMatch ? Number(hourMatch[1]) : 0;
+      const minutes = minuteMatch ? Number(minuteMatch[1]) : 0;
+      const total = (Number.isFinite(hours) ? hours * 60 : 0) + (Number.isFinite(minutes) ? minutes : 0);
+      return total > 0 ? total : 0;
+    }
+
+    const numberMatch = normalized.match(/\d+(?:\.\d+)?/);
+    if (!numberMatch) return 0;
+
+    const parsed = Number(numberMatch[0]);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+  }
+
+  return 0;
+};
+
+const readFirstRuntime = (...values) => {
+  for (const value of values) {
+    const minutes = readPositiveNumber(value);
+    if (minutes > 0) return minutes;
+  }
+
+  return 0;
+};
+
+const getSeasonEpisodeTotal = (seasons) => {
+  if (!Array.isArray(seasons)) return 0;
+
+  return seasons.reduce((total, season) => (
+    total + Math.floor(readFirstRuntime(season?.episode_count, season?.episodeCount, season?.episodes))
+  ), 0);
+};
+
+const getEpisodeCountFromMap = (seasonEpisodeCounts = {}) => (
+  Object.values(seasonEpisodeCounts || {}).reduce((total, count) => (
+    total + Math.floor(readPositiveNumber(count))
+  ), 0)
+);
+
+const getTotalEpisodeCount = (movie = {}) => Math.floor(readFirstRuntime(
+  movie.totalEpisodes,
+  movie.number_of_episodes,
+  movie.numberOfEpisodes,
+  getEpisodeCountFromMap(movie.seasonEpisodeCounts),
+  getSeasonEpisodeTotal(movie.seasons),
+));
+
+const getWatchedEpisodeCountForRuntime = (movie = {}) => {
+  const totalEpisodes = getTotalEpisodeCount(movie);
+  const progress = getTvProgress({
+    ...movie,
+    totalEpisodes: totalEpisodes || movie.totalEpisodes,
+  });
+
+  return Math.max(
+    Math.floor(readFirstRuntime(movie.watchedEpisodes, movie.totalWatchedEpisodes, movie.episodesWatched)),
+    progress.watchedEpisodes || 0,
+  );
+};
+
+const getRuntimeEntry = (movie = {}) => {
+  const mediaType = isTvShow(movie) ? 'tv' : 'movie';
+
+  if (mediaType === 'tv') {
+    const directWatchedMinutes = readFirstRuntime(movie.watchedDuration, movie.totalRuntime);
+    if (directWatchedMinutes > 0) {
+      return { mediaType, minutes: directWatchedMinutes };
+    }
+
+    const episodeMinutes = readFirstRuntime(
+      movie.episodeRuntime,
+      movie.episode_run_time,
+      movie.runtime,
+      movie.duration,
+    );
+
+    if (episodeMinutes <= 0) return null;
+
+    const watchedEpisodes = getWatchedEpisodeCountForRuntime(movie);
+    const minutes = watchedEpisodes > 1 ? episodeMinutes * watchedEpisodes : episodeMinutes;
+
+    return { mediaType, minutes };
+  }
+
+  const minutes = readFirstRuntime(
+    movie.watchedDuration,
+    movie.totalRuntime,
+    movie.runtime,
+    movie.duration,
+  );
+
+  return minutes > 0 ? { mediaType, minutes } : null;
+};
+
+const getRuntimeTrend = (watched = []) => {
+  const entries = watched
+    .map(getRuntimeEntry)
+    .filter(entry => entry && Number.isFinite(entry.minutes) && entry.minutes > 0);
+
+  if (entries.length === 0) {
+    return {
+      averageRuntime: 0,
+      runtimeProfile: 'Süre verisi yetersiz',
+      runtimeDescription: 'Daha fazla film/dizi izledikçe analiz oluşur',
+      runtimeAnalyzedCount: 0,
+    };
+  }
+
+  const totalMinutes = entries.reduce((total, entry) => total + entry.minutes, 0);
+  const averageRuntime = Math.round(totalMinutes / entries.length);
+  const tvRuntimeCount = entries.filter(entry => entry.mediaType === 'tv').length;
+  const movieRuntimeCount = entries.length - tvRuntimeCount;
+
+  let runtimeProfile;
+  if (tvRuntimeCount > movieRuntimeCount) {
+    runtimeProfile = 'Dizi bölümleri ağırlıklı';
+  } else if (movieRuntimeCount > tvRuntimeCount && averageRuntime > 90) {
+    runtimeProfile = 'Film süresi ağırlıklı';
+  } else if (averageRuntime < 45) {
+    runtimeProfile = 'Kısa içerik ağırlıklı';
+  } else if (averageRuntime <= 90) {
+    runtimeProfile = 'Orta uzunlukta içerikler';
+  } else {
+    runtimeProfile = 'Uzun içerik ağırlıklı';
+  }
+
+  return {
+    averageRuntime,
+    runtimeProfile,
+    runtimeDescription: `Ortalama ${averageRuntime} dk • ${entries.length} içerik analiz edildi`,
+    runtimeAnalyzedCount: entries.length,
+  };
 };
 
 const UserInsights = () => {
@@ -206,7 +362,7 @@ const UserInsights = () => {
     const topGenre = rankedGenres[0] || null;
     const averageRating = average(movies, movie => Number(movie.rating));
     const likedAverageRating = average(liked, movie => Number(movie.rating));
-    const averageRuntime = Math.round(average(watched.filter(movie => !isTvShow(movie)), movie => Number(movie.runtime)));
+    const runtimeTrend = getRuntimeTrend(watched);
     const reactionCoverage = watched.length > 0 ? Math.min(100, Math.round((watchedReacted / watched.length) * 100)) : 0;
     const favoriteRate = movies.length > 0 ? Math.round((favorites.length / movies.length) * 100) : 0;
     const watchedRate = movies.length > 0 ? Math.round((watched.length / movies.length) * 100) : 0;
@@ -214,15 +370,6 @@ const UserInsights = () => {
       100,
       Math.round(watched.length * 7 + reacted * 11 + favorites.length * 4 + Math.min(movies.length, 18) * 1.5),
     );
-
-    const runtimeProfile =
-      averageRuntime === 0
-        ? 'Süre verisi az'
-        : averageRuntime < 105
-          ? 'Kısa ve tempolu filmler'
-          : averageRuntime <= 140
-            ? 'Orta uzunlukta hikayeler'
-            : 'Uzun soluklu filmler';
 
     const genreNames = rankedGenres.map(genre => genre.name);
     const hasAny = (...names) => genreNames.some(name => names.includes(name));
@@ -275,14 +422,16 @@ const UserInsights = () => {
       tvRecommendationGenreIds: resolveGenreIdsForMedia(rankedGenres, 'tv'),
       averageRating,
       likedAverageRating,
-      averageRuntime,
+      averageRuntime: runtimeTrend.averageRuntime,
       reactionCoverage,
       favoriteRate,
       watchedRate,
       confidence,
       confidenceLabel: confidence >= 70 ? 'Yüksek güven' : confidence >= 38 ? 'Orta güven' : 'Veri birikiyor',
       profileTitle,
-      runtimeProfile,
+      runtimeProfile: runtimeTrend.runtimeProfile,
+      runtimeDescription: runtimeTrend.runtimeDescription,
+      runtimeAnalyzedCount: runtimeTrend.runtimeAnalyzedCount,
       hasFavoriteSignal: favorites.length > 0,
       notes: notes.slice(0, 4),
     };
@@ -790,8 +939,8 @@ const UserInsights = () => {
                 <TrendingUp size={18} aria-hidden="true" />
                 <div>
                   <span>Süre eğilimi</span>
-                  <strong>{analysis.averageRuntime ? `${analysis.averageRuntime} dk` : '—'}</strong>
-                  <p>{analysis.runtimeProfile}</p>
+                  <strong>{analysis.runtimeProfile}</strong>
+                  <p>{analysis.runtimeDescription}</p>
                 </div>
               </article>
             </div>

@@ -28,6 +28,7 @@ const MovieCard = ({ movie }) => {
   const mediaLabel = getMediaTypeLabel(movie);
   const watchStatus = getWatchStatus(movie);
   const statusLabel = getWatchStatusLabel(movie);
+  const statusBadgeLabel = watchStatus === 'watchlist' ? 'İzlenecek' : statusLabel;
   const tvProgress = tvShow ? getTvProgress(movie) : null;
   const completedTvShow = tvShow && watchStatus === 'completed';
   const tvWatchButtonLabel = watchStatus === 'watching'
@@ -121,7 +122,7 @@ const MovieCard = ({ movie }) => {
             )}
             <div className="card-badge-group">
               <span className="card-badge card-type">{mediaLabel}</span>
-              <span className={`card-badge card-status ${watchStatus}`}>{statusLabel}</span>
+              <span className={`card-badge card-status ${watchStatus}`}>{statusBadgeLabel}</span>
             </div>
           </div>
 

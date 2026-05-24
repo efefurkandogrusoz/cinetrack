@@ -63,21 +63,21 @@
   position: absolute;
   inset: 0;
   background:
-    linear-gradient(180deg, rgba(0, 0, 0, 0.55) 0%, transparent 22%, transparent 55%, rgba(0, 0, 0, 0.88) 100%);
+    linear-gradient(180deg, rgba(0, 0, 0, 0.68) 0%, rgba(0, 0, 0, 0.2) 25%, transparent 48%, rgba(0, 0, 0, 0.92) 100%);
   pointer-events: none;
   z-index: 1;
 }
 
 .card-badges {
   position: absolute;
-  z-index: 2;
-  top: 8px;
-  right: 8px;
-  left: 8px;
+  z-index: 4;
+  top: 9px;
+  right: 9px;
+  left: 9px;
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 6px;
+  gap: 8px;
   pointer-events: none;
 }
 
@@ -85,26 +85,36 @@
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: 4px;
+  flex: 1 1 auto;
+  gap: 5px;
+  max-width: calc(100% - 58px);
+  min-width: 0;
 }
 
 .card-badge {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 22px;
-  padding: 0 7px;
+  max-width: 100%;
+  min-height: 23px;
+  padding: 0 8px;
   border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
   background: rgba(0, 0, 0, 0.72);
   color: #fff;
   font-size: 10px;
-  font-weight: 600;
-  line-height: 1;
-  letter-spacing: 0.02em;
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.28);
   backdrop-filter: blur(8px);
 }
 
 .card-rating {
+  flex: 0 0 auto;
   gap: 3px;
 }
 
@@ -123,15 +133,13 @@
 }
 
 .card-status {
-  max-width: 88px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  max-width: min(108px, 100%);
 }
 
 .card-status.watchlist {
-  background: rgba(255, 255, 255, 0.16);
-  color: #e8e8e8;
+  border-color: rgba(255, 255, 255, 0.16);
+  background: rgba(24, 24, 28, 0.86);
+  color: #f2f2f2;
 }
 
 .card-status.watched,
@@ -207,12 +215,12 @@
   flex-direction: column;
   justify-content: flex-end;
   gap: 10px;
-  padding: 12px;
+  padding: 64px 12px 12px;
   background: linear-gradient(
     180deg,
-    rgba(0, 0, 0, 0.1) 0%,
-    rgba(0, 0, 0, 0.55) 38%,
-    rgba(0, 0, 0, 0.92) 100%
+    rgba(0, 0, 0, 0.24) 0%,
+    rgba(0, 0, 0, 0.58) 40%,
+    rgba(0, 0, 0, 0.94) 100%
   );
   opacity: 0;
   pointer-events: none;
@@ -236,9 +244,10 @@
   display: -webkit-box;
   overflow: hidden;
   margin: 0;
-  color: rgba(255, 255, 255, 0.82);
+  color: rgba(255, 255, 255, 0.92);
   font-size: 12px;
   line-height: 1.45;
+  text-shadow: 0 4px 16px rgba(0, 0, 0, 0.86);
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
 }
@@ -251,6 +260,7 @@
 .card-hover-actions {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 6px;
 }
 
@@ -321,7 +331,9 @@
   width: 100%;
   padding: 10px 10px 11px;
   border: 0;
-  background: #141416;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.025), transparent),
+    #141416;
   color: inherit;
   cursor: pointer;
   text-align: left;
@@ -342,7 +354,7 @@
   overflow: hidden;
   color: #fff;
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 750;
   line-height: 1.3;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
@@ -352,9 +364,9 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  color: #8a8a90;
+  color: #a8a8ae;
   font-size: 11px;
-  font-weight: 500;
+  font-weight: 650;
 }
 
 .card-footer-meta em {
@@ -376,8 +388,13 @@
   .card-hover-panel {
     opacity: 1;
     pointer-events: auto;
-    padding: 8px;
+    padding: 58px 8px 8px;
     background: linear-gradient(180deg, transparent 50%, rgba(0, 0, 0, 0.9) 100%);
+  }
+
+  .card-tv-chip,
+  .card-favorite-mark {
+    opacity: 0;
   }
 
   .card-hover-overview {
@@ -395,6 +412,35 @@
   .card-icon-btn {
     width: 32px;
     height: 32px;
+  }
+}
+
+@media (max-width: 560px) {
+  .card-badges {
+    top: 7px;
+    right: 7px;
+    left: 7px;
+    gap: 6px;
+  }
+
+  .card-badge-group {
+    max-width: calc(100% - 50px);
+    gap: 4px;
+  }
+
+  .card-badge {
+    min-height: 21px;
+    padding: 0 6px;
+    border-radius: 5px;
+    font-size: 9px;
+  }
+
+  .card-status {
+    max-width: min(92px, 100%);
+  }
+
+  .card-hover-panel {
+    padding-top: 56px;
   }
 }
 

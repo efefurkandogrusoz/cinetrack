@@ -1,10 +1,23 @@
 ﻿.movie-modal-layer {
   position: fixed;
   inset: 0;
-  z-index: 1600;
+  z-index: 9500;
   display: grid;
   place-items: center;
   padding: 28px;
+}
+
+html.movie-detail-modal-open,
+body.movie-detail-modal-open {
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+body.movie-detail-modal-open .navbar-container,
+body.movie-detail-modal-open .navbar-spacer {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
 }
 
 .movie-modal-backdrop {
@@ -1851,4 +1864,3 @@
     border-radius: 10px;
   }
 }
-

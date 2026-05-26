@@ -30,6 +30,7 @@ const ReplyItem = ({
   const [busy, setBusy] = useState(false);
   const owned = Boolean(currentUser?.uid && currentUser.uid === reply.userId);
   const liked = Boolean(currentUser?.uid && reply.likedBy?.includes(currentUser.uid));
+  const deleted = Boolean(reply.deleted);
   const cleanDraft = draft.trim();
   const draftInvalid = Boolean(getCommentValidationMessage(draft));
   const authorName = authorProfile.displayName || reply.username || 'CineTrack kullanıcısı';
@@ -99,7 +100,13 @@ const ReplyItem = ({
           {isCommentEdited(reply) && <em>Düzenlendi</em>}
         </div>
 
-        {editing ? (
+        {deleted ? (
+          <p className="comment-deleted-text">
+            {reply.deletedBy && reply.deleteReason && reply.deleteReason !== 'Kullanıcı tarafından silindi'
+              ? `Bu yanıt admin tarafından kaldırıldı. Sebep: ${reply.deleteReason}.`
+              : 'Bu yanıt silindi.'}
+          </p>
+        ) : editing ? (
           <div className="comment-edit-box">
             <textarea
               value={draft}
@@ -132,6 +139,7 @@ const ReplyItem = ({
           <SpoilerContent isSpoiler={reply.isSpoiler} text={reply.text} />
         )}
 
+        {!deleted && (
         <div className="comment-actions">
           <button
             className={liked ? 'liked' : ''}
@@ -162,6 +170,7 @@ const ReplyItem = ({
             </>
           )}
         </div>
+        )}
 
         {reporting && (
           <ReportForm

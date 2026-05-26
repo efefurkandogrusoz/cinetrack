@@ -55,8 +55,7 @@ const AdminHomeSettings = () => {
         setConfig(nextConfig);
         setLoading(false);
       },
-      (loadError) => {
-        console.error('Homepage config could not be loaded:', loadError);
+      () => {
         setError('Ana sayfa ayarları yüklenemedi.');
         setLoading(false);
       },
@@ -73,8 +72,7 @@ const AdminHomeSettings = () => {
     setError('');
     try {
       setSearchResults(await searchMedia(query, mediaType));
-    } catch (searchError) {
-      console.error('Homepage media search failed:', searchError);
+    } catch {
       setError('Film araması yapılamadı.');
     } finally {
       setSearching(false);
@@ -88,8 +86,7 @@ const AdminHomeSettings = () => {
       await saveHomepageConfig({
         [slotKey]: serializeMedia(movie),
       });
-    } catch (saveError) {
-      console.error('Homepage config could not be saved:', saveError);
+    } catch {
       setError('Ana sayfa alanı kaydedilemedi.');
     } finally {
       setSavingSlot('');
@@ -101,8 +98,7 @@ const AdminHomeSettings = () => {
     setError('');
     try {
       await saveHomepageConfig({ [slotKey]: null });
-    } catch (clearError) {
-      console.error('Homepage slot could not be cleared:', clearError);
+    } catch {
       setError('Alan temizlenemedi.');
     } finally {
       setSavingSlot('');

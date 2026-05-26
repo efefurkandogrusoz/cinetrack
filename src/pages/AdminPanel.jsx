@@ -3,10 +3,15 @@ import { Menu, ShieldCheck } from 'lucide-react';
 import AdminSidebar from '../components/admin/AdminSidebar';
 import Navbar from '../components/Navbar';
 import AdminComments from './admin/AdminComments';
+import AdminAnnouncements from './admin/AdminAnnouncements';
 import AdminDashboard from './admin/AdminDashboard';
 import AdminFeaturedMovies from './admin/AdminFeaturedMovies';
+import AdminHeroBanners from './admin/AdminHeroBanners';
 import AdminHomeSettings from './admin/AdminHomeSettings';
+import AdminModeration from './admin/AdminModeration';
 import AdminReports from './admin/AdminReports';
+import AdminSendNotification from './admin/AdminSendNotification';
+import AdminSettings from './admin/AdminSettings';
 import AdminUsers from './admin/AdminUsers';
 import '../styles/pages/AdminPanel.css';
 
@@ -22,12 +27,22 @@ const AdminPanel = () => {
         return <AdminComments />;
       case 'reports':
         return <AdminReports />;
+      case 'announcements':
+        return <AdminAnnouncements />;
+      case 'notifications':
+        return <AdminSendNotification />;
+      case 'moderation':
+        return <AdminModeration />;
+      case 'hero':
+        return <AdminHeroBanners />;
       case 'featured':
         return <AdminFeaturedMovies />;
       case 'home':
         return <AdminHomeSettings />;
+      case 'settings':
+        return <AdminSettings />;
       default:
-        return <AdminDashboard />;
+        return <AdminDashboard onNavigate={setActiveTab} />;
     }
   }, [activeTab]);
 
@@ -59,8 +74,9 @@ const AdminPanel = () => {
             <div>
               <p className="eyebrow">CineTrack</p>
               <h1>Admin Paneli</h1>
+              <p>CineTrack yönetim paneline hoş geldiniz.</p>
             </div>
-            <span>
+            <span className="admin-role-check-btn">
               <ShieldCheck size={17} aria-hidden="true" />
               Firestore rol kontrolü
             </span>

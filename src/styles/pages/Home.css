@@ -210,6 +210,67 @@
 }
 
 /* Bölüm kartları */
+.home-hero.hero-loading {
+  display: grid;
+  place-items: center start;
+  min-height: min(340px, 46vh);
+  background:
+    linear-gradient(135deg, rgba(10, 18, 32, 0.98), rgba(8, 8, 10, 0.96)),
+    #0a0a0b;
+}
+
+.hero-loading-content {
+  display: grid;
+  gap: 14px;
+  width: min(520px, calc(100% - 40px));
+  padding: 40px 44px;
+}
+
+.hero-loading-content span,
+.hero-loading-content strong,
+.hero-loading-content p,
+.hero-loading-content div {
+  display: block;
+  overflow: hidden;
+  border-radius: 999px;
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.07), rgba(var(--primary-rgb), 0.16), rgba(255, 255, 255, 0.07));
+  background-size: 220% 100%;
+  animation: hero-placeholder-shimmer 1.15s ease-in-out infinite;
+}
+
+.hero-loading-content span {
+  width: 110px;
+  height: 12px;
+}
+
+.hero-loading-content strong {
+  width: min(420px, 100%);
+  height: 46px;
+  border-radius: 12px;
+}
+
+.hero-loading-content p {
+  width: min(360px, 86%);
+  height: 18px;
+}
+
+.hero-loading-content div {
+  width: 220px;
+  height: 42px;
+  border-radius: 10px;
+}
+
+@keyframes hero-placeholder-shimmer {
+  0% {
+    background-position: 120% 0;
+  }
+
+  100% {
+    background-position: -80% 0;
+  }
+}
+
 .home-page .featured-home-section,
 .home-page .continue-section {
   padding: 22px 24px;
@@ -333,6 +394,11 @@
     gap: 18px;
   }
 
+  .hero-loading-content {
+    width: 100%;
+    padding: 24px 20px;
+  }
+
   .home-hero .hero-copy {
     gap: 12px;
     max-width: 100%;
@@ -388,6 +454,10 @@
   }
 
   .hero-inner {
+    padding: 22px 16px;
+  }
+
+  .hero-loading-content {
     padding: 22px 16px;
   }
 

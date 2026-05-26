@@ -42,7 +42,7 @@ const DiscoveryRows = () => {
   }, []);
 
   return (
-    <section className="discovery-section">
+    <section id="discover" className="discovery-section">
       <DiscoveryRow
         title="Popüler Filmler"
         subtitle="Bu haftanın en çok konuşulan filmleri"

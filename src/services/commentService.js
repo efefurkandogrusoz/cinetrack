@@ -4,7 +4,6 @@ import {
   arrayUnion,
   collection,
   collectionGroup,
-  deleteDoc,
   doc,
   getDocs,
   onSnapshot,
@@ -18,8 +17,13 @@ import { getMediaType } from '../utils/media';
 
 const COMMENTS_COLLECTION = 'comments';
 const REPLIES_COLLECTION = 'replies';
-const MIN_COMMENT_LENGTH = 2;
+const BANNED_WORDS_COLLECTION = 'bannedWords';
+const MIN_COMMENT_LENGTH = 10;
+const MIN_COMMENT_WORDS = 3;
 const MAX_COMMENT_LENGTH = 500;
+const RECENT_COMMENT_WINDOW_MS = 2 * 60 * 1000;
+const DUPLICATE_COMMENT_WINDOW_MS = 10 * 60 * 1000;
+const MAX_RECENT_COMMENTS = 5;
 
 const normalizeMediaId = (mediaId) => String(mediaId || '');
 
@@ -45,10 +49,100 @@ const getCurrentUsername = (userProfile, user) => (
 
 const validateCommentText = (text) => {
   const cleanText = text.trim();
-  if (cleanText.length < MIN_COMMENT_LENGTH || cleanText.length > MAX_COMMENT_LENGTH) {
-    throw new Error('Yorum 2-500 karakter arasında olmalı.');
+  const wordCount = cleanText.split(/\s+/).filter(Boolean).length;
+
+  if (cleanText.length < MIN_COMMENT_LENGTH || wordCount < MIN_COMMENT_WORDS) {
+    throw new Error('Yorum en az 10 karakter ve 3 kelime olmalı.');
+  }
+  if (cleanText.length > MAX_COMMENT_LENGTH) {
+    throw new Error('Yorum en fazla 500 karakter olabilir.');
   }
   return cleanText;
+};
+
+const escapeRegExp = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+const normalizeTextForCompare = (value) => (
+  value
+    .trim()
+    .toLocaleLowerCase('tr-TR')
+    .replace(/\s+/g, ' ')
+);
+
+const loadActiveBannedWords = async () => {
+  const snapshot = await getDocs(collection(db, BANNED_WORDS_COLLECTION));
+
+  return snapshot.docs
+    .map(docSnapshot => docSnapshot.data())
+    .filter(item => item.isActive !== false)
+    .map(item => String(item.word || '').trim())
+    .filter(Boolean);
+};
+
+const getUserRecentComments = async (userId) => {
+  const snapshot = await getDocs(query(
+    collection(db, COMMENTS_COLLECTION),
+    where('userId', '==', userId),
+  ));
+
+  return snapshot.docs.map(normalizeComment);
+};
+
+const getUppercaseRatio = (text) => {
+  const letters = [...text].filter(char => char.toLocaleLowerCase('tr-TR') !== char.toLocaleUpperCase('tr-TR'));
+  if (letters.length < 12) return 0;
+
+  const uppercaseCount = letters.filter(char => char === char.toLocaleUpperCase('tr-TR')).length;
+  return uppercaseCount / letters.length;
+};
+
+const evaluateModeration = async ({ text, userId }) => {
+  const [bannedWords, recentComments] = await Promise.all([
+    loadActiveBannedWords(),
+    getUserRecentComments(userId),
+  ]);
+  const cleanComparable = normalizeTextForCompare(text);
+  const matchedWord = bannedWords.find((word) => {
+    const pattern = new RegExp(`(^|\\s|[^\\p{L}\\p{N}])${escapeRegExp(word)}($|\\s|[^\\p{L}\\p{N}])`, 'iu');
+    return pattern.test(cleanComparable);
+  });
+
+  if (matchedWord) {
+    return {
+      status: 'pending',
+      reason: `Yasaklı kelime tespit edildi: ${matchedWord}`,
+    };
+  }
+
+  const now = Date.now();
+  const recentByTime = recentComments.filter(comment => (
+    now - getTimestampValue(comment.createdAt) <= RECENT_COMMENT_WINDOW_MS
+  ));
+
+  if (recentByTime.length >= MAX_RECENT_COMMENTS) {
+    throw new Error('Kısa süre içinde çok fazla yorum gönderdin. Lütfen biraz bekle.');
+  }
+
+  const duplicate = recentComments.find(comment => (
+    normalizeTextForCompare(comment.text || '') === cleanComparable &&
+    now - getTimestampValue(comment.createdAt) <= DUPLICATE_COMMENT_WINDOW_MS
+  ));
+
+  if (duplicate) {
+    throw new Error('Aynı yorumu kısa süre içinde tekrar gönderemezsin.');
+  }
+
+  if (getUppercaseRatio(text) > 0.72) {
+    return {
+      status: 'pending',
+      reason: 'Çok fazla büyük harf kullanımı',
+    };
+  }
+
+  return {
+    status: 'published',
+    reason: null,
+  };
 };
 
 const normalizeSpoilerValue = (value) => value === true;
@@ -87,6 +181,8 @@ const normalizeComment = (snapshot) => {
     refPath: snapshot.ref.path,
     ...data,
     isSpoiler: normalizeSpoilerValue(data.isSpoiler),
+    status: data.status || (data.deleted || data.isDeleted ? 'hidden' : 'published'),
+    deleted: data.deleted === true || data.isDeleted === true,
     ...normalizeCommentLikeData(data),
   };
 };
@@ -102,6 +198,8 @@ const normalizeReply = (snapshot) => {
     refPath: snapshot.ref.path,
     ...data,
     isSpoiler: normalizeSpoilerValue(data.isSpoiler),
+    status: data.status || (data.deleted || data.isDeleted ? 'hidden' : 'published'),
+    deleted: data.deleted === true || data.isDeleted === true,
     ...normalizeCommentLikeData(data),
   };
 };
@@ -153,6 +251,7 @@ export const subscribeToMediaComments = ({ mediaId, mediaType }, onComments, onE
     (snapshot) => {
       const comments = snapshot.docs
         .map(normalizeComment)
+        .filter(comment => comment.status === 'published' || comment.deleted)
         .sort(sortNewestFirst);
 
       onComments(comments);
@@ -174,6 +273,7 @@ export const subscribeToCommentReplies = (commentId, onReplies, onError) => {
     (snapshot) => {
       const replies = snapshot.docs
         .map(normalizeReply)
+        .filter(reply => reply.status === 'published' || reply.deleted)
         .sort(sortOldestFirst);
 
       onReplies(replies);
@@ -247,8 +347,9 @@ export const createComment = async ({ media, userProfile, text, isSpoiler = fals
 
   const cleanText = validateCommentText(text);
   const username = getCurrentUsername(userProfile, user);
+  const moderation = await evaluateModeration({ text: cleanText, userId: user.uid });
 
-  return addDoc(collection(db, COMMENTS_COLLECTION), {
+  const ref = await addDoc(collection(db, COMMENTS_COLLECTION), {
     mediaId: normalizeMediaId(media.id),
     mediaType: getMediaType(media),
     mediaTitle: media.title || media.name || 'İsimsiz',
@@ -261,7 +362,13 @@ export const createComment = async ({ media, userProfile, text, isSpoiler = fals
     isEdited: false,
     editedAt: null,
     likedBy: [],
+    status: moderation.status,
+    moderationReason: moderation.reason,
+    reviewedBy: null,
+    reviewedAt: null,
   });
+
+  return { ref, status: moderation.status, moderationReason: moderation.reason };
 };
 
 export const createReply = async ({ comment, userProfile, text, isSpoiler = false }) => {
@@ -271,8 +378,9 @@ export const createReply = async ({ comment, userProfile, text, isSpoiler = fals
 
   const cleanText = validateCommentText(text);
   const username = getCurrentUsername(userProfile, user);
+  const moderation = await evaluateModeration({ text: cleanText, userId: user.uid });
 
-  return addDoc(
+  const ref = await addDoc(
     collection(db, COMMENTS_COLLECTION, comment.id, REPLIES_COLLECTION),
     {
       commentId: comment.id,
@@ -288,8 +396,14 @@ export const createReply = async ({ comment, userProfile, text, isSpoiler = fals
       isEdited: false,
       editedAt: null,
       likedBy: [],
+      status: moderation.status,
+      moderationReason: moderation.reason,
+      reviewedBy: null,
+      reviewedAt: null,
     },
   );
+
+  return { ref, status: moderation.status, moderationReason: moderation.reason };
 };
 
 export const updateComment = async (commentId, payload) => {
@@ -332,8 +446,12 @@ export const deleteComment = async (commentId) => {
   return updateDoc(doc(db, COMMENTS_COLLECTION, commentId), {
     text: '',
     deleted: true,
+    isDeleted: true,
+    status: 'hidden',
     deletedAt: serverTimestamp(),
     deletedBy: user.uid,
+    deleteReason: 'Kullanıcı tarafından silindi',
+    deleteNote: '',
   });
 };
 
@@ -341,7 +459,16 @@ export const deleteReply = async (commentId, replyId) => {
   const user = auth.currentUser;
   if (!user) throw new Error('Yanıtı silmek için giriş yapmalısın.');
 
-  return deleteDoc(doc(db, COMMENTS_COLLECTION, commentId, REPLIES_COLLECTION, replyId));
+  return updateDoc(doc(db, COMMENTS_COLLECTION, commentId, REPLIES_COLLECTION, replyId), {
+    text: '',
+    deleted: true,
+    isDeleted: true,
+    status: 'hidden',
+    deletedAt: serverTimestamp(),
+    deletedBy: user.uid,
+    deleteReason: 'Kullanıcı tarafından silindi',
+    deleteNote: '',
+  });
 };
 
 export const toggleCommentLike = async (comment) => {

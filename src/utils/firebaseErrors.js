@@ -27,6 +27,9 @@ export const getFirebaseMessage = (error) => {
   }
   if (code.includes('too-many-requests')) return 'Çok fazla deneme yapıldı. Biraz bekleyip tekrar dene.';
   if (code.includes('network-request-failed')) return 'Firebase bağlantısı kurulamadı.';
+  if (code.includes('account-disabled-by-admin')) {
+    return 'Bu hesap admin tarafından pasifleştirilmiştir. Giriş yapamazsınız.';
+  }
   if (code.includes('permission-denied')) {
     return 'Firebase Firestore users koleksiyonuna yazma izni vermiyor. Rules ayarlarını kontrol et.';
   }

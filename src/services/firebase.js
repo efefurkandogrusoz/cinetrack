@@ -11,6 +11,7 @@ import {
   where,
   setDoc,
   getDoc,
+  onSnapshot,
   serverTimestamp,
 } from "firebase/firestore";
 import {
@@ -36,6 +37,10 @@ import {
   hasProfileAvatarUpdate,
   normalizeProfileAvatarFields,
 } from '../constants/profileAvatars';
+import {
+  createDisabledAccountError,
+  isInactiveUserProfile,
+} from '../utils/accountStatus';
 
 const requiredFirebaseEnvKeys = [
   'VITE_FIREBASE_API_KEY',
@@ -143,6 +148,17 @@ const createGoogleUserProfileIfMissing = async (user) => {
   });
 };
 
+const assertUserCanAccessApp = async (user) => {
+  const profile = await getUserProfile(user.uid);
+
+  if (isInactiveUserProfile(profile)) {
+    await signOut(auth);
+    throw createDisabledAccountError();
+  }
+
+  return profile;
+};
+
 const withTimeout = (promise, timeoutMs, message) => {
   let timeoutId;
   const timeout = new Promise((_, reject) => {
@@ -160,18 +176,18 @@ const saveUserProfileSafely = (user, extra = {}) => {
   });
 };
 
-export const syncCurrentUserProfileMetadata = (user) => {
+export const syncCurrentUserProfileMetadata = async (user) => {
   const createdAt = getAuthCreatedAt(user);
-  if (!user || !createdAt) return;
+  if (!user) return;
 
   if (getUserAuthProvider(user) === 'google') {
-    createGoogleUserProfileIfMissing(user).catch((error) => {
-      console.warn('Google user profile could not be initialized:', error);
-    });
+    await createGoogleUserProfileIfMissing(user);
     return;
   }
 
-  saveUserProfileSafely(user, { createdAt });
+  if (createdAt) {
+    await saveUserProfile(user, { createdAt });
+  }
 };
 
 // Add movie to Firestore
@@ -259,7 +275,7 @@ export const registerUser = async (email, password, displayName = '', rememberSe
     updateProfile(userCredential.user, { displayName: cleanDisplayName }).catch((error) => {
       console.warn('Display name could not be synced:', error);
     });
-    saveUserProfileSafely(userCredential.user, {
+    await saveUserProfile(userCredential.user, {
       displayName: cleanDisplayName,
       avatarType: 'preset',
       avatarId: DEFAULT_PROFILE_AVATAR,
@@ -279,6 +295,7 @@ export const loginUser = async (email, password, rememberSession = true) => {
   try {
     await setAuthPersistence(rememberSession);
     const userCredential = await signInWithEmailAndPassword(auth, email, password);
+    await assertUserCanAccessApp(userCredential.user);
     saveUserProfileSafely(userCredential.user, {
       createdAt: getAuthCreatedAt(userCredential.user),
       lastLoginAt: serverTimestamp(),
@@ -295,6 +312,7 @@ export const signInWithGoogle = async (rememberSession = true) => {
     await setAuthPersistence(rememberSession);
     const userCredential = await signInWithPopup(auth, googleProvider);
     await createGoogleUserProfileIfMissing(userCredential.user);
+    await assertUserCanAccessApp(userCredential.user);
     return userCredential.user;
   } catch (error) {
     console.error('Google login error:', error);
@@ -343,6 +361,25 @@ export const getUserProfile = async (uid) => {
     return null;
   }
 };
+
+export const subscribeToUserProfile = (uid, onProfile, onError) => (
+  onSnapshot(
+    doc(db, USERS_COLLECTION, uid),
+    (snapshot) => {
+      if (!snapshot.exists()) {
+        onProfile(null);
+        return;
+      }
+
+      const profile = snapshot.data();
+      onProfile({
+        ...profile,
+        ...normalizeProfileAvatarFields(profile),
+      });
+    },
+    onError,
+  )
+);
 
 export const updateAccountSettings = async ({
   displayName,
@@ -454,6 +491,7 @@ export default {
   logoutUser,
   onUserStateChanged,
   getUserProfile,
+  subscribeToUserProfile,
   syncCurrentUserProfileMetadata,
   updateAccountSettings,
 };

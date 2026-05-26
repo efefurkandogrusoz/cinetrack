@@ -27,8 +27,7 @@ const AdminUsers = () => {
         setUsers(nextUsers);
         setLoading(false);
       },
-      (loadError) => {
-        console.error('Admin users could not be loaded:', loadError);
+      () => {
         setError('Kullanıcılar yüklenemedi.');
         setLoading(false);
       },
@@ -36,8 +35,8 @@ const AdminUsers = () => {
 
     loadUserCommentCounts()
       .then(setCommentCounts)
-      .catch((countError) => {
-        console.warn('User comment counts could not be loaded:', countError);
+      .catch(() => {
+        setError('Yorum sayıları şu anda yüklenemedi.');
       });
 
     return () => unsubscribe();
@@ -56,8 +55,7 @@ const AdminUsers = () => {
     setError('');
     try {
       await updateUserRole(userId, nextRole);
-    } catch (roleError) {
-      console.error('User role could not be updated:', roleError);
+    } catch {
       setError('Rol güncellenemedi.');
     } finally {
       setBusyUserId('');
@@ -77,8 +75,7 @@ const AdminUsers = () => {
     setError('');
     try {
       await updateUserDisabled(userId, !disabled);
-    } catch (disabledError) {
-      console.error('User disabled state could not be updated:', disabledError);
+    } catch {
       setError('Kullanıcı durumu güncellenemedi.');
     } finally {
       setBusyUserId('');

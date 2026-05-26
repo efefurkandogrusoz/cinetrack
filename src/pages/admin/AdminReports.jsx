@@ -28,8 +28,7 @@ const AdminReports = () => {
         setReports(nextReports);
         setLoading(false);
       },
-      (loadError) => {
-        console.error('Admin reports could not be loaded:', loadError);
+      () => {
         setError('Şikayetler yüklenemedi.');
         setLoading(false);
       },
@@ -47,8 +46,7 @@ const AdminReports = () => {
     setError('');
     try {
       await updateReportStatus(reportId, status);
-    } catch (statusError) {
-      console.error('Report status could not be updated:', statusError);
+    } catch {
       setError('Şikayet durumu güncellenemedi.');
     } finally {
       setBusyId('');
@@ -63,8 +61,7 @@ const AdminReports = () => {
     try {
       await deleteReportedComment(report);
       await updateReportStatus(report.id, 'resolved');
-    } catch (deleteError) {
-      console.error('Reported comment could not be deleted:', deleteError);
+    } catch {
       setError('Yorum silinemedi.');
     } finally {
       setBusyId('');

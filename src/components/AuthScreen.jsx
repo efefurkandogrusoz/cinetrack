@@ -21,6 +21,7 @@ import {
   getRememberedAccounts,
   rememberAccount,
 } from '../utils/rememberedAccounts';
+import { useMovies } from '../context/MovieContext';
 import '../styles/components/AuthScreen.css';
 
 const showcaseFeatures = [
@@ -42,6 +43,7 @@ const showcaseFeatures = [
 ];
 
 const AuthScreen = () => {
+  const { authError, clearAuthError } = useMovies();
   const [mode, setMode] = useState('login');
   const [displayName, setDisplayName] = useState('');
   const [email, setEmail] = useState('');
@@ -67,6 +69,7 @@ const AuthScreen = () => {
     setMode(nextMode);
     setMessage('');
     setMessageType('error');
+    clearAuthError();
   };
 
   const submit = async (event) => {
@@ -74,6 +77,7 @@ const AuthScreen = () => {
     setBusy(true);
     setMessage('');
     setMessageType('error');
+    clearAuthError();
 
     try {
       const loginEmail = isRegister
@@ -107,6 +111,7 @@ const AuthScreen = () => {
     setBusy(true);
     setMessage('');
     setMessageType('error');
+    clearAuthError();
 
     try {
       await resetUserPassword(resetEmail);
@@ -124,6 +129,7 @@ const AuthScreen = () => {
     setBusy(true);
     setMessage('');
     setMessageType('error');
+    clearAuthError();
 
     try {
       const user = await signInWithGoogle(rememberMe);
@@ -141,6 +147,9 @@ const AuthScreen = () => {
       setBusy(false);
     }
   };
+
+  const visibleMessage = message || authError;
+  const visibleMessageType = message ? messageType : 'error';
 
   return (
     <main className="auth-screen">
@@ -246,7 +255,10 @@ const AuthScreen = () => {
                   <input
                     type={isRegister ? 'email' : 'text'}
                     value={email}
-                    onChange={event => setEmail(event.target.value)}
+                    onChange={event => {
+                      setEmail(event.target.value);
+                      if (authError) clearAuthError();
+                    }}
                     autoComplete={isRegister ? 'email' : 'username'}
                     placeholder={isRegister ? 'E-posta adresi' : 'E-posta veya kullanıcı adı'}
                     required
@@ -311,9 +323,9 @@ const AuthScreen = () => {
               </div>
             )}
 
-            {message && (
-              <p className={`auth-message auth-message-${messageType}`} role="alert">
-                {message}
+            {visibleMessage && (
+              <p className={`auth-message auth-message-${visibleMessageType}`} role="alert">
+                {visibleMessage}
               </p>
             )}
 

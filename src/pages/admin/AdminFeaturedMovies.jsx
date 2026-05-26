@@ -30,8 +30,7 @@ const AdminFeaturedMovies = () => {
         setFeaturedMovies(nextMovies);
         setLoading(false);
       },
-      (loadError) => {
-        console.error('Featured movies could not be loaded:', loadError);
+      () => {
         setError('Popüler filmler yüklenemedi.');
         setLoading(false);
       },
@@ -52,8 +51,7 @@ const AdminFeaturedMovies = () => {
     setError('');
     try {
       setSearchResults(await searchMedia(query, mediaType));
-    } catch (searchError) {
-      console.error('Admin featured search failed:', searchError);
+    } catch {
       setError('Film araması yapılamadı.');
     } finally {
       setSearching(false);
@@ -71,8 +69,7 @@ const AdminFeaturedMovies = () => {
         order: featuredMovies.length + 1,
         isActive: true,
       });
-    } catch (saveError) {
-      console.error('Featured movie could not be saved:', saveError);
+    } catch {
       setError('Film öne çıkanlara eklenemedi.');
     } finally {
       setBusyId('');
@@ -84,8 +81,7 @@ const AdminFeaturedMovies = () => {
     setError('');
     try {
       await updateFeaturedMovie(featuredId, updates);
-    } catch (updateError) {
-      console.error('Featured movie could not be updated:', updateError);
+    } catch {
       setError('Öne çıkan film güncellenemedi.');
     } finally {
       setBusyId('');
@@ -99,8 +95,7 @@ const AdminFeaturedMovies = () => {
     setError('');
     try {
       await deleteFeaturedMovie(featuredId);
-    } catch (deleteError) {
-      console.error('Featured movie could not be deleted:', deleteError);
+    } catch {
       setError('Film kaldırılamadı.');
     } finally {
       setBusyId('');

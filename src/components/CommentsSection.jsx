@@ -89,7 +89,7 @@ const CommentsSection = ({ media }) => {
     setSaving(true);
     setError('');
     try {
-      await createComment({
+      const result = await createComment({
         media,
         userProfile,
         text,
@@ -97,10 +97,12 @@ const CommentsSection = ({ media }) => {
       });
       setText('');
       setIsSpoiler(false);
-      showMessage('Yorum paylaşıldı.');
+      showMessage(result.status === 'pending'
+        ? 'Yorumunuz moderasyon kontrolüne takıldı. İnceleme sonrası yayınlanabilir.'
+        : 'Yorum paylaşıldı.');
     } catch (submitError) {
       console.error('Comment could not be sent:', submitError);
-      setError('Yorum gönderilemedi.');
+      setError(submitError?.message || 'Yorum gönderilemedi.');
     } finally {
       setSaving(false);
     }
@@ -169,16 +171,18 @@ const CommentsSection = ({ media }) => {
 
     setError('');
     try {
-      await createReply({
+      const result = await createReply({
         comment,
         userProfile,
         text: replyText,
         isSpoiler: replyIsSpoiler,
       });
-      showMessage('Yanıt paylaşıldı.');
+      showMessage(result.status === 'pending'
+        ? 'Yanıtınız moderasyon kontrolüne takıldı. İnceleme sonrası yayınlanabilir.'
+        : 'Yanıt paylaşıldı.');
     } catch (replyError) {
       console.error('Reply could not be sent:', replyError);
-      setError('Yanıt gönderilemedi.');
+      setError(replyError?.message || 'Yanıt gönderilemedi.');
       throw replyError;
     }
   };
@@ -271,7 +275,7 @@ const CommentsSection = ({ media }) => {
         <form className="comment-form" onSubmit={submitComment}>
           <textarea
             value={text}
-            minLength={2}
+            minLength={10}
             maxLength={MAX_COMMENT_LENGTH}
             placeholder="Bu film/dizi hakkında yorumunu yaz..."
             onChange={event => setText(event.target.value)}

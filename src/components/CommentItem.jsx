@@ -179,7 +179,11 @@ const CommentItem = ({
         </div>
 
         {deleted ? (
-          <p className="comment-deleted-text">Bu yorum silindi.</p>
+          <p className="comment-deleted-text">
+            {comment.deletedBy && comment.deleteReason && comment.deleteReason !== 'Kullanıcı tarafından silindi'
+              ? `Bu yorum admin tarafından kaldırıldı. Sebep: ${comment.deleteReason}.`
+              : 'Bu yorum silindi.'}
+          </p>
         ) : editing ? (
           <div className="comment-edit-box">
             <textarea

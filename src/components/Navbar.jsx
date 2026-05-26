@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
   BarChart3,
@@ -47,6 +47,7 @@ const DrawerNavItem = ({ icon: Icon, label, active = false, onClick, className =
 const Navbar = () => {
   const { filter, setFilter, movies, user, userProfile } = useMovies();
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -176,9 +177,48 @@ const Navbar = () => {
     { value: stats.favorites, label: 'Favori' },
   ];
 
+  useEffect(() => {
+    let frameId = 0;
+
+    const getScrollTop = (event) => {
+      const target = event?.target;
+      const targetScrollTop = target && target !== document
+        ? Number(target.scrollTop || target.documentElement?.scrollTop || target.body?.scrollTop || 0)
+        : 0;
+
+      return Math.max(
+        window.scrollY || 0,
+        document.documentElement.scrollTop || 0,
+        document.body.scrollTop || 0,
+        targetScrollTop,
+      );
+    };
+
+    const handleScroll = (event) => {
+      window.cancelAnimationFrame(frameId);
+      frameId = window.requestAnimationFrame(() => {
+        setScrolled(getScrollTop(event) > 12);
+      });
+    };
+
+    handleScroll();
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    document.addEventListener('scroll', handleScroll, { passive: true, capture: true });
+
+    return () => {
+      window.cancelAnimationFrame(frameId);
+      window.removeEventListener('scroll', handleScroll);
+      document.removeEventListener('scroll', handleScroll, { capture: true });
+    };
+  }, []);
+
   return (
     <>
-      <nav className={hideNavbarSearch ? 'navbar-container navbar-compact' : 'navbar-container'}>
+      <nav className={[
+        'navbar-container',
+        hideNavbarSearch ? 'navbar-compact' : '',
+        scrolled ? 'navbar-scrolled' : '',
+      ].filter(Boolean).join(' ')}>
         <button className="navbar-brand" type="button" onClick={goToHomeTop}>
           <img className="brand-logo-mark" src={logoMarkUrl} alt="" aria-hidden="true" />
           <span className="brand-text">
@@ -232,6 +272,7 @@ const Navbar = () => {
           </button>
         </div>
       </nav>
+      <div className="navbar-spacer" aria-hidden="true" />
 
       <aside
         className={drawerOpen ? 'side-drawer open' : 'side-drawer'}
@@ -348,7 +389,7 @@ const Navbar = () => {
         </div>
       </aside>
 
-      {drawerOpen && <button className="drawer-backdrop" type="button" aria-label="Menüyü kapat" onClick={closeDrawer} />}
+      {drawerOpen && <button className="drawer-backdrop" type="button" aria-label="Navigasyon arka planını kapat" onClick={closeDrawer} />}
     </>
   );
 };

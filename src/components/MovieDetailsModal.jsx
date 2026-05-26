@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
   Bookmark,
@@ -53,6 +53,14 @@ const languageLabels = {
   fr: 'Fransızca',
   de: 'Almanca',
   it: 'İtalyanca',
+};
+
+let openDetailModalCount = 0;
+
+const setDetailModalPageState = (isOpen) => {
+  openDetailModalCount = Math.max(0, openDetailModalCount + (isOpen ? 1 : -1));
+  document.documentElement.classList.toggle('movie-detail-modal-open', openDetailModalCount > 0);
+  document.body.classList.toggle('movie-detail-modal-open', openDetailModalCount > 0);
 };
 
 const ratingValues = Array.from({ length: 10 }, (_, index) => index + 1);
@@ -215,6 +223,14 @@ const MovieDetailsModal = ({ movie, onClose }) => {
     ? watchLinks.providerLinks
     : watchLinks.searchLinks.slice(0, 6);
   const similarContent = activeMovie.similarContent || [];
+
+  useLayoutEffect(() => {
+    setDetailModalPageState(true);
+
+    return () => {
+      setDetailModalPageState(false);
+    };
+  }, []);
 
   const updateTrackingDraft = (updates) => {
     setTrackingDraft(current => normalizeTvTracking(activeMovie, {

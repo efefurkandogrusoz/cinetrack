@@ -6,12 +6,32 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    function isOwner(userId) {
+    function isAuthOwner(userId) {
       return signedIn() && request.auth.uid == userId;
     }
 
-    function isAdmin() {
+    function accountIsActive(account) {
+      return !(account.keys().hasAny(['disabled']) && account.disabled == true)
+        && !(account.keys().hasAny(['isActive']) && account.isActive == false)
+        && !(account.keys().hasAny(['status']) && account.status in ['disabled', 'inactive', 'passive', 'pasif']);
+    }
+
+    function hasUserProfile() {
       return signedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function activeSignedIn() {
+      return hasUserProfile()
+        && accountIsActive(get(/databases/$(database)/documents/users/$(request.auth.uid)).data);
+    }
+
+    function isOwner(userId) {
+      return activeSignedIn() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return activeSignedIn()
         && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
@@ -66,11 +86,15 @@ service cloud.firestore {
         && request.resource.data.isEdited == false
         && request.resource.data.editedAt == null
         && request.resource.data.likedBy is list
-        && request.resource.data.likedBy.size() == 0;
+        && request.resource.data.likedBy.size() == 0
+        && request.resource.data.status in ['published', 'pending']
+        && (request.resource.data.moderationReason == null || request.resource.data.moderationReason is string)
+        && request.resource.data.reviewedBy == null
+        && request.resource.data.reviewedAt == null;
     }
 
     function canCreateComment() {
-      return signedIn()
+      return activeSignedIn()
         && request.resource.data.keys().hasOnly([
           'mediaId',
           'mediaType',
@@ -84,12 +108,16 @@ service cloud.firestore {
           'isEdited',
           'editedAt',
           'likedBy',
+          'status',
+          'moderationReason',
+          'reviewedBy',
+          'reviewedAt',
         ])
         && hasValidCommonCommentFields();
     }
 
     function canCreateReply(commentId) {
-      return signedIn()
+      return activeSignedIn()
         && exists(/databases/$(database)/documents/comments/$(commentId))
         && !(
           get(/databases/$(database)/documents/comments/$(commentId)).data.keys().hasAny(['deleted'])
@@ -109,13 +137,17 @@ service cloud.firestore {
           'isEdited',
           'editedAt',
           'likedBy',
+          'status',
+          'moderationReason',
+          'reviewedBy',
+          'reviewedAt',
         ])
         && request.resource.data.commentId == commentId
         && hasValidCommonCommentFields();
     }
 
     function canEditOwnText() {
-      return signedIn()
+      return activeSignedIn()
         && resource.data.userId == request.auth.uid
         && !isDeleted()
         && changedOnly(['text', 'isSpoiler', 'updatedAt', 'isEdited', 'editedAt'])
@@ -127,18 +159,22 @@ service cloud.firestore {
     }
 
     function canSoftDeleteOwnComment() {
-      return signedIn()
+      return activeSignedIn()
         && resource.data.userId == request.auth.uid
         && !isDeleted()
-        && changedOnly(['text', 'deleted', 'deletedAt', 'deletedBy'])
+        && changedOnly(['text', 'deleted', 'isDeleted', 'status', 'deletedAt', 'deletedBy', 'deleteReason', 'deleteNote'])
         && request.resource.data.text == ''
         && request.resource.data.deleted == true
+        && request.resource.data.isDeleted == true
+        && request.resource.data.status == 'hidden'
         && request.resource.data.deletedBy == request.auth.uid
+        && request.resource.data.deleteReason is string
+        && request.resource.data.deleteNote is string
         && request.resource.data.deletedAt == request.time;
     }
 
     function canToggleLike() {
-      return signedIn()
+      return activeSignedIn()
         && !isDeleted()
         && changedOnly(['likedBy'])
         && request.resource.data.likedBy is list
@@ -146,7 +182,7 @@ service cloud.firestore {
     }
 
     function canCreateReport() {
-      return signedIn()
+      return activeSignedIn()
         && request.resource.data.keys().hasOnly([
           'commentId',
           'replyId',
@@ -186,52 +222,57 @@ service cloud.firestore {
     }
 
     match /users/{userId} {
-      allow read: if true;
-      allow create: if isOwner(userId)
+      allow read: if !signedIn()
+        || activeSignedIn()
+        || isAuthOwner(userId);
+      allow create: if isAuthOwner(userId)
         && request.resource.data.uid == userId
-        && !request.resource.data.keys().hasAny(['role', 'disabled']);
+        && !request.resource.data.keys().hasAny(['role', 'disabled', 'isActive', 'status']);
       allow update: if isAdmin()
         || (
           isOwner(userId)
           && resource.data.uid == userId
           && request.resource.data.uid == userId
-          && didNotChange(['role', 'disabled'])
+          && didNotChange(['role', 'disabled', 'isActive', 'status'])
         );
       allow delete: if false;
     }
 
     match /movies/{movieId} {
       allow read: if isAdmin()
-        || (signedIn() && resource.data.userId == request.auth.uid);
-      allow create: if signedIn()
+        || (activeSignedIn() && resource.data.userId == request.auth.uid);
+      allow create: if activeSignedIn()
         && request.resource.data.userId == request.auth.uid;
-      allow update: if signedIn()
+      allow update: if activeSignedIn()
         && resource.data.userId == request.auth.uid
         && request.resource.data.userId == resource.data.userId;
-      allow delete: if signedIn()
+      allow delete: if activeSignedIn()
         && resource.data.userId == request.auth.uid;
     }
 
     match /comments/{commentId} {
-      allow read: if true;
+      allow read: if !signedIn() || activeSignedIn();
       allow create: if canCreateComment();
       allow update: if canEditOwnText()
         || canSoftDeleteOwnComment()
-        || canToggleLike();
+        || canToggleLike()
+        || isAdmin();
       allow delete: if isAdmin();
 
       match /replies/{replyId} {
-        allow read: if true;
+        allow read: if !signedIn() || activeSignedIn();
         allow create: if canCreateReply(commentId);
         allow update: if canEditOwnText()
-          || canToggleLike();
+          || canSoftDeleteOwnComment()
+          || canToggleLike()
+          || isAdmin();
         allow delete: if isAdmin()
-          || (signedIn() && resource.data.userId == request.auth.uid);
+          || (activeSignedIn() && resource.data.userId == request.auth.uid);
       }
     }
 
     match /{path=**}/replies/{replyId} {
-      allow read: if true;
+      allow read: if !signedIn() || activeSignedIn();
       allow write: if false;
     }
 
@@ -240,13 +281,38 @@ service cloud.firestore {
       allow read, update, delete: if isAdmin();
     }
 
-    match /featuredMovies/{featuredMovieId} {
+    match /announcements/{announcementId} {
       allow read: if true;
       allow write: if isAdmin();
     }
 
+    match /notifications/{notificationId} {
+      allow read: if activeSignedIn()
+        && (
+          resource.data.targetType == 'all'
+          || (resource.data.targetType == 'admins' && isAdmin())
+          || (resource.data.targetType == 'user' && resource.data.targetUserId == request.auth.uid)
+        );
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /bannedWords/{wordId} {
+      allow read: if activeSignedIn();
+      allow write: if isAdmin();
+    }
+
+    match /heroBanners/{bannerId} {
+      allow read: if !signedIn() || activeSignedIn();
+      allow write: if isAdmin();
+    }
+
+    match /featuredMovies/{featuredMovieId} {
+      allow read: if !signedIn() || activeSignedIn();
+      allow write: if isAdmin();
+    }
+
     match /homepageConfig/{configId} {
-      allow read: if true;
+      allow read: if !signedIn() || activeSignedIn();
       allow write: if isAdmin();
     }
 

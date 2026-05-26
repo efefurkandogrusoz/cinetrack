@@ -14,6 +14,10 @@ import {
   hasProfileAvatarUpdate,
   normalizeProfileAvatarFields,
 } from '../constants/profileAvatars';
+import {
+  DISABLED_ACCOUNT_MESSAGE,
+  isInactiveUserProfile,
+} from '../utils/accountStatus';
 import { notifyFromBridge } from '../utils/notifyBridge';
 import { NOTIFICATION_TYPES } from '../utils/notificationHelpers';
 
@@ -47,6 +51,7 @@ const initialState = {
   user: null,
   userProfile: null,
   authReady: false,
+  authError: '',
   theme: getStoredTheme(),
 };
 
@@ -110,6 +115,18 @@ const getRecentMovies = (movies, predicate, dateFields) => (
 
 const findMedia = (movies, media) => movies.some(movie => getMediaKey(movie) === getMediaKey(media));
 
+const getFallbackUserProfile = (user) => ({
+  uid: user.uid,
+  email: user.email,
+  displayName: user.displayName || user.email?.split('@')[0] || 'Kullanıcı',
+  profileNote: '',
+  createdAt: user.metadata?.creationTime || user.metadata?.createdAt || null,
+  avatarType: 'preset',
+  avatarId: DEFAULT_PROFILE_AVATAR,
+  avatarUrl: null,
+  avatar: DEFAULT_PROFILE_AVATAR,
+});
+
 const movieReducer = (state, action) => {
   switch (action.type) {
     case 'SET_MOVIES':
@@ -161,11 +178,17 @@ const movieReducer = (state, action) => {
     case 'SET_AUTH_READY':
       return { ...state, authReady: action.payload };
 
+    case 'SET_AUTH_ERROR':
+      return { ...state, authError: action.payload || '' };
+
     case 'SET_THEME':
       return { ...state, theme: action.payload };
     
     case 'CLEAR_ERROR':
       return { ...state, error: null };
+
+    case 'CLEAR_AUTH_ERROR':
+      return { ...state, authError: '' };
     
     default:
       return state;
@@ -212,53 +235,115 @@ export const MovieProvider = ({ children }) => {
     }
   }, []);
 
-  // Load movies on mount
+  // Load movies and profile metadata after auth/profile state is fully known.
   useEffect(() => {
-    // Listen for auth state changes
-    const unsubscribe = firebaseService.onUserStateChanged((user) => {
-      dispatch({ type: 'SET_USER', payload: user });
+    let unsubscribeProfile = null;
+    let authRunId = 0;
+    let loadedMoviesForUid = null;
+
+    const cleanupProfileListener = () => {
+      unsubscribeProfile?.();
+      unsubscribeProfile = null;
+    };
+
+    const disableCurrentSession = async (runId) => {
+      if (runId !== authRunId) return;
+
+      loadedMoviesForUid = null;
+      cleanupProfileListener();
+      dispatch({ type: 'SET_AUTH_ERROR', payload: DISABLED_ACCOUNT_MESSAGE });
+      dispatch({ type: 'SET_USER', payload: null });
+      dispatch({ type: 'SET_USER_PROFILE', payload: null });
+      dispatch({ type: 'SET_MOVIES', payload: [] });
       dispatch({ type: 'SET_AUTH_READY', payload: true });
 
-      if (user) {
-        firebaseService.syncCurrentUserProfileMetadata(user);
-
-        dispatch({
-          type: 'SET_USER_PROFILE',
-          payload: {
-            uid: user.uid,
-            email: user.email,
-            displayName: user.displayName || user.email?.split('@')[0] || 'Kullanıcı',
-            profileNote: '',
-            createdAt: user.metadata?.creationTime || user.metadata?.createdAt || null,
-            avatarType: 'preset',
-            avatarId: DEFAULT_PROFILE_AVATAR,
-            avatarUrl: null,
-            avatar: DEFAULT_PROFILE_AVATAR,
-          },
-        });
-
-        firebaseService.getUserProfile(user.uid).then((profile) => {
-          if (profile) {
-            dispatch({ type: 'SET_USER_PROFILE', payload: profile });
-          }
-        });
-
-        loadMovies(true);
-      } else {
-        dispatch({ type: 'SET_USER_PROFILE', payload: null });
-        loadMovies(false);
+      try {
+        await firebaseService.logoutUser();
+      } catch (error) {
+        console.error('Disabled user could not be signed out:', error);
       }
+    };
+
+    const unsubscribe = firebaseService.onUserStateChanged((user) => {
+      authRunId += 1;
+      const runId = authRunId;
+
+      cleanupProfileListener();
+      dispatch({ type: 'SET_AUTH_READY', payload: false });
+
+      if (user) {
+        dispatch({ type: 'SET_AUTH_ERROR', payload: '' });
+        dispatch({ type: 'SET_USER', payload: user });
+        dispatch({ type: 'SET_USER_PROFILE', payload: null });
+
+        Promise.resolve(firebaseService.syncCurrentUserProfileMetadata(user))
+          .catch((error) => {
+            console.warn('User profile metadata could not be synced:', error);
+          })
+          .finally(() => {
+            if (runId !== authRunId) return;
+
+            unsubscribeProfile = firebaseService.subscribeToUserProfile(
+              user.uid,
+              (profile) => {
+                if (runId !== authRunId) return;
+
+                const nextProfile = profile || getFallbackUserProfile(user);
+
+                if (isInactiveUserProfile(nextProfile)) {
+                  disableCurrentSession(runId);
+                  return;
+                }
+
+                dispatch({ type: 'SET_USER', payload: firebaseService.auth.currentUser || user });
+                dispatch({ type: 'SET_USER_PROFILE', payload: nextProfile });
+                dispatch({ type: 'SET_AUTH_READY', payload: true });
+
+                if (loadedMoviesForUid !== user.uid) {
+                  loadedMoviesForUid = user.uid;
+                  loadMovies(true);
+                }
+              },
+              (error) => {
+                console.error('User profile could not be watched:', error);
+
+                if (runId !== authRunId) return;
+
+                const fallbackProfile = getFallbackUserProfile(user);
+                dispatch({ type: 'SET_USER_PROFILE', payload: fallbackProfile });
+                dispatch({ type: 'SET_AUTH_READY', payload: true });
+
+                if (loadedMoviesForUid !== user.uid) {
+                  loadedMoviesForUid = user.uid;
+                  loadMovies(true);
+                }
+              },
+            );
+          });
+
+        return;
+      }
+
+      loadedMoviesForUid = null;
+      dispatch({ type: 'SET_USER', payload: null });
+      dispatch({ type: 'SET_USER_PROFILE', payload: null });
+      dispatch({ type: 'SET_AUTH_READY', payload: true });
+      loadMovies(false);
     });
 
-    return () => unsubscribe();
+    return () => {
+      authRunId += 1;
+      cleanupProfileListener();
+      unsubscribe();
+    };
   }, [loadMovies]);
 
   // Sync local storage
   useEffect(() => {
-    if (state.authReady && state.moviesReady) {
+    if (state.authReady && state.moviesReady && !state.authError) {
       storageService.saveMoviesToLocal(state.movies, state.user?.uid);
     }
-  }, [state.authReady, state.movies, state.moviesReady, state.user]);
+  }, [state.authError, state.authReady, state.movies, state.moviesReady, state.user]);
 
   const addMovie = useCallback(async (movieData) => {
     const normalizedInput = normalizeMediaItem(movieData);
@@ -568,7 +653,7 @@ export const MovieProvider = ({ children }) => {
     } finally {
       dispatch({ type: 'SET_LOADING', payload: false });
     }
-  }, [state.user]);
+  }, [state.movies, state.user]);
 
   const updateMediaProgress = useCallback(async (docId, progressUpdates) => {
     dispatch({ type: 'SET_LOADING', payload: true });
@@ -647,6 +732,10 @@ export const MovieProvider = ({ children }) => {
 
   const clearError = useCallback(() => {
     dispatch({ type: 'CLEAR_ERROR' });
+  }, []);
+
+  const clearAuthError = useCallback(() => {
+    dispatch({ type: 'CLEAR_AUTH_ERROR' });
   }, []);
 
   const setTheme = useCallback((themeId) => {
@@ -732,6 +821,7 @@ export const MovieProvider = ({ children }) => {
     setFilter,
     setSearchResults,
     clearError,
+    clearAuthError,
     setTheme,
     themeOptions,
     updateAccountSettings,

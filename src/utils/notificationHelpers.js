@@ -11,6 +11,11 @@ export const NOTIFICATION_TYPES = {
   SHARE: 'share',
   COMPARE: 'compare',
   SYSTEM: 'system',
+  ANNOUNCEMENT: 'announcement',
+  ADMIN: 'admin',
+  WARNING: 'warning',
+  FEATURE: 'feature',
+  ACCOUNT: 'account',
 };
 
 export const NOTIFICATION_FILTERS = [
@@ -20,6 +25,7 @@ export const NOTIFICATION_FILTERS = [
   { id: 'recommendation', label: 'Öneriler' },
   { id: 'weekly-summary', label: 'Özet' },
   { id: 'system', label: 'Sistem' },
+  { id: 'announcement', label: 'Duyurular' },
 ];
 
 const ACTION_TYPES = new Set([
@@ -71,5 +77,10 @@ export const matchesNotificationFilter = (notification, filterId) => {
       || notification.type === NOTIFICATION_TYPES.WATCH_TIME;
   }
   if (filterId === 'system') return notification.type === NOTIFICATION_TYPES.SYSTEM;
+  if (filterId === 'announcement') {
+    return notification.type === NOTIFICATION_TYPES.ANNOUNCEMENT
+      || notification.source === 'announcement'
+      || notification.source === 'admin';
+  }
   return true;
 };

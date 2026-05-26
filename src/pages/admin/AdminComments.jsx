@@ -7,6 +7,15 @@ import usePublicUserProfile from '../../hooks/usePublicUserProfile';
 import { deleteAdminComment, subscribeAdminComments } from '../../services/adminService';
 import { formatAdminDate } from '../../utils/admin';
 
+const deleteReasons = [
+  'Küfür / hakaret',
+  'Spam',
+  'Spoiler ihlali',
+  'Uygunsuz içerik',
+  'Yanlış bilgi',
+  'Diğer',
+];
+
 const AdminCommentCard = ({ comment, onDelete, busy }) => {
   const authorProfile = usePublicUserProfile(comment.userId, { username: comment.username });
   const authorName = authorProfile.displayName || comment.username || 'CineTrack kullanıcısı';
@@ -23,7 +32,7 @@ const AdminCommentCard = ({ comment, onDelete, busy }) => {
           </span>
         </Link>
         <span className={comment.isSpoiler ? 'admin-spoiler-pill active' : 'admin-spoiler-pill'}>
-          {comment.isSpoiler ? 'Spoiler' : 'Normal'}
+          {comment.deleted ? 'Silindi' : comment.isSpoiler ? 'Spoiler' : (comment.status || 'published')}
         </span>
       </div>
 
@@ -34,7 +43,9 @@ const AdminCommentCard = ({ comment, onDelete, busy }) => {
       </div>
 
       {comment.deleted ? (
-        <p className="admin-muted">Bu yorum kullanıcı tarafından silinmiş.</p>
+        <p className="admin-muted">
+          Bu yorum kaldırılmış. Sebep: {comment.deleteReason || 'Belirtilmedi'}
+        </p>
       ) : (
         <SpoilerContent text={comment.text} isSpoiler={comment.isSpoiler === true} />
       )}
@@ -61,6 +72,10 @@ const AdminComments = () => {
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('active');
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleteReason, setDeleteReason] = useState(deleteReasons[0]);
+  const [deleteNote, setDeleteNote] = useState('');
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -69,8 +84,7 @@ const AdminComments = () => {
         setComments(nextComments);
         setLoading(false);
       },
-      (loadError) => {
-        console.error('Admin comments could not be loaded:', loadError);
+      () => {
         setError('Yorumlar yüklenemedi.');
         setLoading(false);
       },
@@ -81,25 +95,41 @@ const AdminComments = () => {
 
   const filteredComments = useMemo(() => {
     const query = searchTerm.trim().toLocaleLowerCase('tr-TR');
-    if (!query) return comments;
+    const byStatus = comments.filter((comment) => {
+      if (statusFilter === 'deleted') return comment.deleted;
+      if (statusFilter === 'pending') return comment.status === 'pending';
+      if (statusFilter === 'hidden') return comment.status === 'hidden' || comment.status === 'rejected';
+      return !comment.deleted && (comment.status === 'published' || !comment.status);
+    });
 
-    return comments.filter(comment => [
+    if (!query) return byStatus;
+
+    return byStatus.filter(comment => [
       comment.text,
       comment.username,
       comment.mediaTitle,
       comment.mediaType,
     ].some(value => String(value || '').toLocaleLowerCase('tr-TR').includes(query)));
-  }, [comments, searchTerm]);
+  }, [comments, searchTerm, statusFilter]);
 
-  const deleteComment = async (comment) => {
-    if (!window.confirm('Bu yorumu kalıcı olarak silmek istediğine emin misin?')) return;
+  const openDeleteModal = (comment) => {
+    setDeleteTarget(comment);
+    setDeleteReason(deleteReasons[0]);
+    setDeleteNote('');
+  };
 
-    setBusyId(`${comment.kind}:${comment.id}`);
+  const deleteComment = async () => {
+    if (!deleteTarget) return;
+
+    setBusyId(`${deleteTarget.kind}:${deleteTarget.id}`);
     setError('');
     try {
-      await deleteAdminComment(comment);
-    } catch (deleteError) {
-      console.error('Admin comment could not be deleted:', deleteError);
+      await deleteAdminComment(deleteTarget, {
+        reason: deleteReason,
+        note: deleteNote.trim(),
+      });
+      setDeleteTarget(null);
+    } catch {
       setError('Yorum silinemedi.');
     } finally {
       setBusyId('');
@@ -126,6 +156,24 @@ const AdminComments = () => {
         />
       </label>
 
+      <div className="admin-filter-tabs">
+        {[
+          { id: 'active', label: 'Yayındaki yorumlar' },
+          { id: 'pending', label: 'İnceleme bekleyen' },
+          { id: 'hidden', label: 'Gizli / reddedilen' },
+          { id: 'deleted', label: 'Silinen yorumlar' },
+        ].map(item => (
+          <button
+            key={item.id}
+            type="button"
+            className={statusFilter === item.id ? 'active' : ''}
+            onClick={() => setStatusFilter(item.id)}
+          >
+            {item.label}
+          </button>
+        ))}
+      </div>
+
       {error && <p className="admin-alert">{error}</p>}
 
       {loading ? (
@@ -138,10 +186,33 @@ const AdminComments = () => {
             <AdminCommentCard
               key={`${comment.kind}:${comment.id}`}
               comment={comment}
-              onDelete={deleteComment}
+              onDelete={openDeleteModal}
               busy={busyId === `${comment.kind}:${comment.id}`}
             />
           ))}
+        </div>
+      )}
+
+      {deleteTarget && (
+        <div className="admin-modal-layer" role="dialog" aria-modal="true" aria-label="Yorum silme sebebi">
+          <div className="admin-modal-card">
+            <h3>Yorumu kaldır</h3>
+            <p>Yorum soft delete olarak işaretlenecek ve silme sebebi saklanacak.</p>
+            <label>
+              <span>Silme sebebi</span>
+              <select value={deleteReason} onChange={event => setDeleteReason(event.target.value)}>
+                {deleteReasons.map(reason => <option key={reason} value={reason}>{reason}</option>)}
+              </select>
+            </label>
+            <label>
+              <span>Açıklama</span>
+              <textarea value={deleteNote} onChange={event => setDeleteNote(event.target.value)} maxLength={240} />
+            </label>
+            <div className="admin-form-actions">
+              <button type="button" onClick={deleteComment} disabled={Boolean(busyId)}>Onayla</button>
+              <button type="button" onClick={() => setDeleteTarget(null)} disabled={Boolean(busyId)}>Vazgeç</button>
+            </div>
+          </div>
         </div>
       )}
     </div>

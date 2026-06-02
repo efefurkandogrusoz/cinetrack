@@ -2180,3 +2180,331 @@
     width: 100%;
   }
 }
+
+/* Theme-aligned admin polish */
+.admin-page {
+  --admin-bg: var(--bg-primary);
+  --admin-surface: color-mix(in srgb, var(--panel) 86%, transparent);
+  --admin-surface-strong: color-mix(in srgb, var(--bg-secondary) 76%, var(--primary-color) 8%);
+  --admin-field: color-mix(in srgb, var(--bg-tertiary) 72%, transparent);
+  --admin-border: var(--border-color);
+  --admin-text: var(--text-primary);
+  --admin-soft: var(--text-secondary);
+  --admin-muted: var(--text-muted);
+  --admin-shadow: rgba(0, 0, 0, 0.28);
+  background:
+    radial-gradient(circle at 16% 0%, rgba(var(--primary-rgb), 0.16), transparent 30%),
+    linear-gradient(180deg, color-mix(in srgb, var(--admin-bg) 92%, var(--primary-color) 8%), var(--admin-bg));
+  color: var(--admin-text);
+}
+
+html[data-theme='light'] .admin-page,
+html[data-appearance='light'] .admin-page,
+body.light-theme .admin-page,
+body.theme-light .admin-page {
+  --admin-bg: #f6f8fc;
+  --admin-surface: rgba(255, 255, 255, 0.88);
+  --admin-surface-strong: rgba(255, 255, 255, 0.96);
+  --admin-field: rgba(238, 243, 251, 0.94);
+  --admin-border: rgba(16, 24, 40, 0.12);
+  --admin-text: #101828;
+  --admin-soft: #344054;
+  --admin-muted: #667085;
+  --admin-shadow: rgba(16, 24, 40, 0.13);
+}
+
+.admin-page .eyebrow,
+.admin-sidebar-brand strong span,
+.admin-engagement-metric.comments svg,
+.admin-quick-action-arrow {
+  color: var(--primary-color);
+}
+
+.admin-sidebar,
+.admin-topbar,
+.admin-section,
+.admin-panel-card,
+.admin-dashboard-card,
+.admin-chart-card,
+.admin-stat-card,
+.admin-comment-card,
+.admin-report-card,
+.admin-liked-comments-card,
+.admin-activity-card,
+.admin-quick-actions-card,
+.admin-modal-card {
+  border-color: var(--admin-border);
+  background:
+    linear-gradient(145deg, rgba(var(--primary-rgb), 0.07), transparent 52%),
+    var(--admin-surface);
+  color: var(--admin-text);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.035),
+    0 18px 48px var(--admin-shadow);
+}
+
+.admin-sidebar {
+  background:
+    linear-gradient(180deg, rgba(var(--primary-rgb), 0.08), transparent 44%),
+    color-mix(in srgb, var(--admin-bg) 88%, #000 12%);
+}
+
+.admin-sidebar-brand,
+.admin-sidebar-footer,
+.admin-sidebar-head,
+.admin-table-row,
+.admin-card-list > article,
+.admin-picker-list button,
+.admin-hero-result,
+.admin-hero-preview,
+.admin-featured-row,
+.admin-engagement-row,
+.admin-liked-comment,
+.admin-activity-item,
+.admin-quick-actions button,
+.admin-search-field,
+.admin-toggle {
+  border-color: var(--admin-border);
+  background: var(--admin-field);
+  color: var(--admin-text);
+}
+
+.admin-sidebar-head span,
+.dashboard-stat-grid .admin-stat-card svg,
+.admin-quick-action-icon {
+  background: rgba(var(--primary-rgb), 0.15);
+  color: var(--primary-color);
+  box-shadow: none;
+}
+
+.admin-sidebar-nav button {
+  color: var(--admin-soft);
+}
+
+.admin-sidebar-nav button svg {
+  color: var(--admin-muted);
+}
+
+.admin-sidebar-nav button:hover,
+.admin-sidebar-nav button.active {
+  border-color: rgba(var(--primary-rgb), 0.58);
+  background:
+    linear-gradient(135deg, rgba(var(--primary-rgb), 0.24), transparent),
+    rgba(var(--primary-rgb), 0.1);
+  color: var(--admin-text);
+  box-shadow:
+    inset 3px 0 0 var(--primary-color),
+    0 14px 30px rgba(var(--primary-rgb), 0.12);
+}
+
+.admin-sidebar-nav button.active svg,
+.admin-sidebar-nav button:hover svg {
+  color: var(--primary-color);
+}
+
+.admin-sidebar-brand strong,
+.admin-sidebar-head strong,
+.admin-sidebar-footer strong,
+.admin-topbar h1,
+.admin-section-head h2,
+.admin-dashboard-card h3,
+.admin-chart-card h3,
+.admin-stat-card strong,
+.admin-modal-card h3,
+.admin-engagement-title strong,
+.admin-liked-comment-author strong,
+.admin-activity-item strong,
+.admin-table-row strong {
+  color: var(--admin-text);
+}
+
+.admin-sidebar-brand small,
+.admin-sidebar-footer span,
+.admin-topbar p:not(.eyebrow),
+.admin-dashboard-card header span,
+.admin-chart-card header span,
+.admin-table-head,
+.admin-table-row > span,
+.admin-engagement-head,
+.admin-chart-legend span,
+.admin-liked-comment small,
+.admin-activity-item small,
+.admin-activity-item time,
+.admin-modal-card p,
+.admin-section p,
+.admin-stat-card span {
+  color: var(--admin-muted);
+}
+
+.admin-chart-legend b,
+.admin-donut-center tspan:last-child {
+  color: var(--admin-text);
+  fill: var(--admin-text);
+}
+
+.admin-donut-center {
+  fill: var(--admin-soft);
+}
+
+.admin-role-check-btn,
+.admin-refresh-btn,
+.admin-count-pill,
+.admin-topbar > span,
+.admin-dashboard-card header span,
+.admin-chart-card header span {
+  border-color: rgba(var(--primary-rgb), 0.34) !important;
+  background: rgba(var(--primary-rgb), 0.12) !important;
+  color: var(--admin-text);
+}
+
+.admin-refresh-btn:hover:not(:disabled),
+.admin-search-row button:hover,
+.admin-form-actions button:hover,
+.admin-inline-form button:hover,
+.admin-picker-list button:hover,
+.admin-picker-list button.selected,
+.admin-row-actions button:hover,
+.admin-media-card button:hover,
+.admin-featured-row button:hover,
+.admin-filter-tabs button:hover,
+.admin-filter-tabs button.active,
+.admin-quick-actions button:hover {
+  border-color: rgba(var(--primary-rgb), 0.6);
+  background: rgba(var(--primary-rgb), 0.16);
+  color: var(--admin-text);
+}
+
+.admin-search-field input,
+.admin-featured-row input,
+.admin-form-grid input,
+.admin-form-grid select,
+.admin-form-grid textarea,
+.admin-modal-card input,
+.admin-modal-card select,
+.admin-modal-card textarea,
+.admin-inline-form input,
+.admin-hero-search-row input,
+.admin-hero-picker-head input,
+.admin-search-row input {
+  border-color: var(--admin-border);
+  background: var(--admin-field);
+  color: var(--admin-text);
+}
+
+.admin-search-field input::placeholder,
+.admin-featured-row input::placeholder,
+.admin-form-grid input::placeholder,
+.admin-form-grid textarea::placeholder,
+.admin-modal-card input::placeholder,
+.admin-modal-card textarea::placeholder,
+.admin-inline-form input::placeholder,
+.admin-hero-search-row input::placeholder,
+.admin-search-row input::placeholder {
+  color: var(--admin-muted);
+}
+
+.admin-search-row button,
+.admin-form-actions button,
+.admin-inline-form button,
+.admin-picker-list button,
+.admin-row-actions button,
+.admin-media-card button,
+.admin-featured-row button,
+.admin-filter-tabs button,
+.admin-home-slot > button,
+.admin-hero-picker-head button,
+.admin-hero-search-row button {
+  border-color: var(--admin-border);
+  background: var(--admin-field);
+  color: var(--admin-text);
+}
+
+.admin-table,
+.admin-engagement-table {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.admin-topbar::before {
+  background-image:
+    linear-gradient(90deg, rgba(var(--primary-rgb), 0.08) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(var(--primary-rgb), 0.06) 1px, transparent 1px),
+    linear-gradient(115deg, transparent 0 52%, rgba(var(--primary-rgb), 0.12) 52% 68%, transparent 68%);
+}
+
+.admin-topbar::after {
+  background:
+    linear-gradient(90deg, rgba(var(--primary-rgb), 0.13), transparent 30%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.055), transparent 58%),
+    linear-gradient(135deg, transparent 35%, rgba(var(--primary-rgb), 0.08) 35% 36%, transparent 36% 64%, rgba(148, 163, 184, 0.06) 64% 65%, transparent 65%);
+}
+
+.admin-liked-comment-author span,
+.admin-chip,
+.admin-status-badge {
+  border-color: rgba(var(--primary-rgb), 0.28);
+  background: rgba(var(--primary-rgb), 0.1);
+  color: var(--primary-color);
+}
+
+.admin-quick-actions {
+  max-width: 100%;
+}
+
+.admin-quick-actions button {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.admin-quick-action > span:nth-child(2) {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.admin-modal-layer {
+  background: rgba(0, 0, 0, 0.64);
+  backdrop-filter: blur(7px);
+}
+
+@media (max-width: 1100px) {
+  .admin-sidebar {
+    background:
+      linear-gradient(180deg, rgba(var(--primary-rgb), 0.1), transparent 42%),
+      color-mix(in srgb, var(--admin-bg) 88%, #000 12%);
+  }
+}
+
+@media (max-width: 700px) {
+  .admin-page {
+    padding-inline: 0;
+  }
+
+  .admin-shell {
+    width: min(100vw - 16px, 1540px);
+    max-width: calc(100vw - 16px);
+  }
+
+  .admin-dashboard-card,
+  .admin-chart-card,
+  .admin-panel-card,
+  .admin-section {
+    border-radius: 10px;
+  }
+
+  .admin-quick-actions {
+    gap: 10px;
+    padding: 10px;
+  }
+
+  .admin-quick-actions button {
+    grid-template-columns: 30px minmax(0, 1fr) 16px;
+    min-height: 46px;
+    padding: 0 10px;
+  }
+
+  .admin-quick-action-icon {
+    width: 30px;
+    height: 30px;
+  }
+}

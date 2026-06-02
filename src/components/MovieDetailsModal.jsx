@@ -1,18 +1,20 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { useNavigate } from 'react-router-dom';
 import {
   Bookmark,
   CalendarDays,
   CheckCircle2,
+  ChevronDown,
   Clapperboard,
   Clock3,
-  ExternalLink,
   Film,
   Globe2,
   Heart,
   Languages,
   MessageSquare,
-  Play,
+  Plus,
+  RotateCcw,
   Search,
   Star,
   Tv,
@@ -34,7 +36,6 @@ import {
   isTvShow,
   normalizeTvTracking,
 } from '../utils/media';
-import { getWatchLinks } from '../utils/watchLinks';
 import '../styles/components/MovieDetailsModal.css';
 
 const tvStatusOptions = [
@@ -118,11 +119,42 @@ const formatRuntime = (movie, tvShow) => {
   return Number.isFinite(runtime) && runtime > 0 ? `${runtime} dk` : null;
 };
 
+const getDateFromValue = (value) => {
+  if (!value) return null;
+  if (typeof value.toDate === 'function') return value.toDate();
+  if (typeof value === 'object' && Number.isFinite(value.seconds)) {
+    return new Date(value.seconds * 1000);
+  }
+
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+};
+
+const formatDetailDate = (value) => {
+  const date = getDateFromValue(value);
+  if (!date) return null;
+
+  return date.toLocaleDateString('tr-TR', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  });
+};
+
+const getActorProfileUrl = (actor = {}) => {
+  const profilePath = actor.profile_path || actor.profilePath;
+  if (actor.profileUrl) return actor.profileUrl;
+  if (!profilePath) return '';
+  if (String(profilePath).startsWith('http')) return profilePath;
+  return `https://image.tmdb.org/t/p/w185${profilePath}`;
+};
+
 const uniqueText = (items = []) => (
   Array.from(new Set(items.filter(Boolean)))
 );
 
 const MovieDetailsModal = ({ movie, onClose }) => {
+  const navigate = useNavigate();
   const {
     addMovie,
     movies,
@@ -137,13 +169,15 @@ const MovieDetailsModal = ({ movie, onClose }) => {
   const [details, setDetails] = useState(movie);
   const [loading, setLoading] = useState(false);
   const [detailsError, setDetailsError] = useState(null);
-  const [trailerOpen, setTrailerOpen] = useState(false);
-  const [trailerFeedback, setTrailerFeedback] = useState('');
+  const [watchAssistantPicker, setWatchAssistantPicker] = useState({ season: '', episode: '' });
+  const [watchAssistantFeedback, setWatchAssistantFeedback] = useState('');
   const [trackingDraft, setTrackingDraft] = useState(null);
+  const [castExpansion, setCastExpansion] = useState({ key: '', expanded: false });
+  const [isHiddenSearchModalOpen, setIsHiddenSearchModalOpen] = useState(false);
+  const [hiddenClickCount, setHiddenClickCount] = useState(0);
+  const [clickTimeout, setClickTimeout] = useState(null);
   const modalRef = useRef(null);
   const ratingRef = useRef(null);
-  const watchSectionRef = useRef(null);
-  const trailerSectionRef = useRef(null);
   const commentsRef = useRef(null);
 
   const listedMovie = useMemo(
@@ -175,6 +209,7 @@ const MovieDetailsModal = ({ movie, onClose }) => {
   const mediaLabel = getMediaTypeLabel(activeMovie);
   const watchStatus = getWatchStatus(activeMovie);
   const isFavorite = Boolean(listedMovie?.favorite || listedMovie?.isFavorite);
+  const isListed = Boolean(listedMovie);
   const isWatched = Boolean(
     listedMovie?.watched ||
     watchStatus === 'watched' ||
@@ -194,7 +229,19 @@ const MovieDetailsModal = ({ movie, onClose }) => {
   const trackingCompleted = tvShow && tracking.watchStatus === 'completed';
   const backdrop = activeMovie.backdrop || details?.backdrop || activeMovie.poster;
   const poster = activeMovie.poster || details?.poster || null;
-  const trailerKey = activeMovie.trailerKey || details?.trailerKey || null;
+  const mediaDetailKey = `${mediaType}:${activeMovie.id || ''}`;
+  const defaultAssistantSeason = tvShow ? Math.max(1, Number(activeMovie.currentSeason || tracking.currentSeason) || 1) : '';
+  const defaultAssistantEpisode = tvShow ? Math.max(1, Number(activeMovie.currentEpisode || tracking.currentEpisode) || 1) : '';
+  const selectedAssistantSeason = Number(watchAssistantPicker.season) || 0;
+  const assistantSeasonCount = tvShow
+    ? Math.max(Number(activeMovie.totalSeasons) || 0, selectedAssistantSeason, tracking.currentSeason, 1)
+    : 0;
+  const assistantEpisodeLimit = tvShow && selectedAssistantSeason > 0
+    ? getEpisodeCountForSeason(activeMovie, selectedAssistantSeason)
+    : 0;
+  const assistantEpisodeCount = tvShow
+    ? Math.max(assistantEpisodeLimit, Number(watchAssistantPicker.episode) || Number(defaultAssistantEpisode) || 0, 1)
+    : 0;
   const productionStatus = formatProductionStatus(activeMovie.status);
   const runtimeLabel = formatRuntime(activeMovie, tvShow);
   const countryLabel = formatCountries(activeMovie);
@@ -204,6 +251,9 @@ const MovieDetailsModal = ({ movie, onClose }) => {
   const userRating = getUserRating(activeMovie);
   const originalTitle = activeMovie.originalTitle || activeMovie.originalName || activeMovie.original_title || activeMovie.original_name;
   const showOriginalTitle = originalTitle && originalTitle !== activeMovie.title;
+  const titleText = String(activeMovie.title || '');
+  const titleWithoutLast = titleText.slice(0, -1);
+  const lastTitleLetter = titleText.slice(-1);
   const creditNames = tvShow
     ? uniqueText(activeMovie.producers || [])
     : uniqueText((activeMovie.directors?.length ? activeMovie.directors : activeMovie.producers) || []);
@@ -215,14 +265,27 @@ const MovieDetailsModal = ({ movie, onClose }) => {
       productionStatus,
     ].filter(Boolean)
     : [];
-  const watchLinks = useMemo(
-    () => getWatchLinks(activeMovie.title, activeMovie.watchProviders || []),
-    [activeMovie.title, activeMovie.watchProviders],
-  );
-  const visibleWatchLinks = watchLinks.hasProviderInfo
-    ? watchLinks.providerLinks
-    : watchLinks.searchLinks.slice(0, 6);
+  const castExpansionKey = `${mediaType}:${activeMovie?.id || ''}`;
+  const showAllCast = castExpansion.key === castExpansionKey && castExpansion.expanded;
   const similarContent = activeMovie.similarContent || [];
+  const castList = activeMovie.cast || [];
+  const visibleCastList = showAllCast ? castList : castList.slice(0, 5);
+  const hasHiddenCast = castList.length > 5;
+  const watchMethodLabel = activeMovie.watchMethod ||
+    activeMovie.preferredPlatform ||
+    (tvShow ? 'Dizi takibi' : 'Film takibi');
+  const startedDateLabel = formatDetailDate(
+    activeMovie.watchStartedAt ||
+    activeMovie.startedAt ||
+    activeMovie.addedAt ||
+    activeMovie.createdAt,
+  );
+  const lastWatchedDateLabel = formatDetailDate(
+    activeMovie.lastWatchedAt ||
+    activeMovie.watchedAt ||
+    activeMovie.updatedAt ||
+    activeMovie.ratingAt,
+  );
 
   useLayoutEffect(() => {
     setDetailModalPageState(true);
@@ -231,6 +294,12 @@ const MovieDetailsModal = ({ movie, onClose }) => {
       setDetailModalPageState(false);
     };
   }, []);
+
+  useEffect(() => () => {
+    if (clickTimeout) {
+      window.clearTimeout(clickTimeout);
+    }
+  }, [clickTimeout]);
 
   const updateTrackingDraft = (updates) => {
     setTrackingDraft(current => normalizeTvTracking(activeMovie, {
@@ -274,10 +343,48 @@ const MovieDetailsModal = ({ movie, onClose }) => {
   }, [modalMedia, mediaType]);
 
   useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setWatchAssistantFeedback('');
+      setIsHiddenSearchModalOpen(false);
+      setWatchAssistantPicker(tvShow
+        ? {
+          season: String(defaultAssistantSeason),
+          episode: String(defaultAssistantEpisode),
+        }
+        : { season: '', episode: '' });
+    }, 0);
+
+    return () => window.clearTimeout(timer);
+  }, [mediaDetailKey, tvShow, defaultAssistantSeason, defaultAssistantEpisode]);
+
+  useEffect(() => {
+    if (!hiddenClickCount || isHiddenSearchModalOpen) return undefined;
+
+    const resetOnOutsideClick = () => {
+      if (clickTimeout) {
+        window.clearTimeout(clickTimeout);
+      }
+
+      setClickTimeout(null);
+      setHiddenClickCount(0);
+    };
+
+    window.addEventListener('click', resetOnOutsideClick);
+    return () => window.removeEventListener('click', resetOnOutsideClick);
+  }, [clickTimeout, hiddenClickCount, isHiddenSearchModalOpen]);
+
+  useEffect(() => {
     const handleKeyDown = (event) => {
       if (event.key === 'Escape') {
-        if (trailerOpen) {
-          setTrailerOpen(false);
+        if (isHiddenSearchModalOpen) {
+          if (clickTimeout) {
+            window.clearTimeout(clickTimeout);
+          }
+
+          setClickTimeout(null);
+          setHiddenClickCount(0);
+          setWatchAssistantFeedback('');
+          setIsHiddenSearchModalOpen(false);
           return;
         }
 
@@ -287,7 +394,7 @@ const MovieDetailsModal = ({ movie, onClose }) => {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onClose, trailerOpen]);
+  }, [clickTimeout, isHiddenSearchModalOpen, onClose]);
 
   const addToList = async (overrides = {}) => {
     await addMovie({ ...activeMovie, mediaType, ...overrides });
@@ -374,6 +481,12 @@ const MovieDetailsModal = ({ movie, onClose }) => {
     await addToList({ watched: false, watchStatus: 'watchlist' });
   };
 
+  const handleAddToLibrary = async () => {
+    if (listedMovie) return;
+
+    await addToList({ watched: false, watchStatus: watchStatus || 'watchlist' });
+  };
+
   const handleFavorite = async () => {
     if (listedMovie) {
       await toggleFavorite(docId, listedMovie.favorite || false);
@@ -414,48 +527,144 @@ const MovieDetailsModal = ({ movie, onClose }) => {
     });
   };
 
-  const toggleTrailer = () => {
-    if (!trailerKey) {
-      setTrailerFeedback(loading ? 'Fragman bilgisi yükleniyor...' : 'Bu içerik için fragman bulunamadı.');
-      return;
-    }
-
-    setTrailerFeedback('');
-
-    if (trailerOpen) {
-      setTrailerOpen(false);
-      return;
-    }
-
-    setTrailerOpen(true);
-
-    window.requestAnimationFrame(() => {
-      window.setTimeout(() => {
-        trailerSectionRef.current?.scrollIntoView({
-          behavior: 'smooth',
-          block: 'center',
-        });
-      }, 60);
+  const resetTvTracking = async () => {
+    const resetTracking = normalizeTvTracking(activeMovie, {
+      watchStatus: 'watchlist',
+      currentSeason: 1,
+      currentEpisode: 1,
     });
+    const updates = {
+      ...resetTracking,
+      watched: false,
+      progressPercent: 0,
+      watchedEpisodes: 0,
+      totalWatchedEpisodes: 0,
+    };
+
+    if (listedMovie) {
+      await updateMediaProgress(docId, updates);
+      setTrackingDraft(null);
+      return;
+    }
+
+    await addToList(updates);
+    setTrackingDraft(null);
+  };
+
+  const updateWatchAssistantSeason = (event) => {
+    const nextSeason = event.target.value;
+    const nextSeasonNumber = Number(nextSeason) || 0;
+    const nextEpisodeLimit = nextSeasonNumber > 0
+      ? getEpisodeCountForSeason(activeMovie, nextSeasonNumber)
+      : 0;
+
+    setWatchAssistantFeedback('');
+    setWatchAssistantPicker(current => {
+      const currentEpisode = Number(current.episode) || 0;
+      const nextEpisode = currentEpisode > 0
+        ? String(nextEpisodeLimit > 0 ? Math.min(currentEpisode, nextEpisodeLimit) : currentEpisode)
+        : '';
+
+      return {
+        season: nextSeason,
+        episode: nextSeason ? nextEpisode : '',
+      };
+    });
+  };
+
+  const updateWatchAssistantEpisode = (event) => {
+    setWatchAssistantFeedback('');
+    setWatchAssistantPicker(current => ({
+      ...current,
+      episode: event.target.value,
+    }));
+  };
+
+  const openWatchAssistantSearch = () => {
+    const cleanTitle = titleText || 'İçerik';
+
+    if (!tvShow) {
+      const query = `${cleanTitle} türkçe dublaj izle`;
+
+      window.open(`https://www.google.com/search?q=${encodeURIComponent(query)}`, '_blank', 'noopener,noreferrer');
+      return;
+    }
+
+    const season = Number(watchAssistantPicker.season);
+    const episode = Number(watchAssistantPicker.episode);
+
+    if (!season || !episode) {
+      const message = 'Lütfen sezon ve bölüm seç.';
+      setWatchAssistantFeedback(message);
+      window.alert(message);
+      return;
+    }
+
+    const query = `${cleanTitle} sezon ${season} bölüm ${episode} türkçe dublaj izle`;
+
+    window.open(`https://www.google.com/search?q=${encodeURIComponent(query)}`, '_blank', 'noopener,noreferrer');
+  };
+
+  const resetHiddenSearchTrigger = () => {
+    if (clickTimeout) {
+      window.clearTimeout(clickTimeout);
+    }
+
+    setClickTimeout(null);
+    setHiddenClickCount(0);
+  };
+
+  const closeHiddenSearchModal = () => {
+    resetHiddenSearchTrigger();
+    setWatchAssistantFeedback('');
+    setIsHiddenSearchModalOpen(false);
   };
 
   const openSimilarContent = (relatedMedia) => {
     setModalMedia(relatedMedia);
     setDetails(relatedMedia);
     setDetailsError(null);
-    setTrailerFeedback('');
-    setTrailerOpen(false);
+    setWatchAssistantFeedback('');
     setTrackingDraft(null);
+    resetHiddenSearchTrigger();
+    setIsHiddenSearchModalOpen(false);
     modalRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const openActorDetails = (actor) => {
+    if (!actor?.id) return;
+    onClose?.();
+    navigate(`/actor/${actor.id}`);
+  };
+
+  const handleHiddenTitleClick = (event) => {
+    event.stopPropagation();
+
+    if (clickTimeout) {
+      window.clearTimeout(clickTimeout);
+    }
+
+    const nextCount = hiddenClickCount + 1;
+
+    if (nextCount >= 5) {
+      setClickTimeout(null);
+      setHiddenClickCount(0);
+      setWatchAssistantFeedback('');
+      setIsHiddenSearchModalOpen(true);
+      return;
+    }
+
+    setHiddenClickCount(nextCount);
+    const nextTimeout = window.setTimeout(() => {
+      setHiddenClickCount(0);
+      setClickTimeout(null);
+    }, 4000);
+    setClickTimeout(nextTimeout);
   };
 
   const heroStyle = backdrop
     ? {
-      backgroundImage: `
-        linear-gradient(90deg, rgba(9, 9, 10, 0.96) 0%, rgba(12, 12, 14, 0.9) 42%, rgba(12, 12, 14, 0.52) 100%),
-        linear-gradient(180deg, rgba(0, 0, 0, 0.18), #111 96%),
-        url(${backdrop})
-      `,
+      backgroundImage: `var(--detail-hero-gradient), url(${backdrop})`,
     }
     : undefined;
 
@@ -481,7 +690,14 @@ const MovieDetailsModal = ({ movie, onClose }) => {
 
           <div className="movie-modal-copy detail-hero-copy">
             <p className="eyebrow">{mediaLabel} Detayı</p>
-            <h2>{activeMovie.title}</h2>
+            <h2>
+              {titleWithoutLast}
+              {lastTitleLetter && (
+                <span className="secret-title-letter" onClick={handleHiddenTitleClick}>
+                  {lastTitleLetter}
+                </span>
+              )}
+            </h2>
             {showOriginalTitle && <p className="detail-original-title">Orijinal ad: {originalTitle}</p>}
 
             <div className="movie-modal-meta detail-meta">
@@ -510,12 +726,12 @@ const MovieDetailsModal = ({ movie, onClose }) => {
             <div className="detail-actions">
               <div className="detail-actions-primary">
                 <button
-                  className={`detail-btn detail-btn--hero ${isFavorite ? 'is-active' : ''}`}
+                  className={`detail-btn detail-btn--hero ${watchStatus === 'watchlist' ? 'is-active' : ''}`}
                   type="button"
-                  onClick={handleFavorite}
+                  onClick={handleWatchlist}
                 >
-                  <Heart size={16} aria-hidden="true" />
-                  {isFavorite ? 'Favoriden Çıkar' : 'Favoriye Ekle'}
+                  <Bookmark size={16} aria-hidden="true" />
+                  {watchStatus === 'watchlist' ? 'Planlama Listemde' : 'Planlama Listeme Ekle'}
                 </button>
                 <button
                   className={`detail-btn detail-btn--hero ${isWatched ? 'is-active' : ''}`}
@@ -526,20 +742,21 @@ const MovieDetailsModal = ({ movie, onClose }) => {
                   {isWatched ? 'İzlendi' : 'İzledim'}
                 </button>
                 <button
-                  className={`detail-btn detail-btn--hero ${watchStatus === 'watchlist' ? 'is-active' : ''}`}
+                  className={`detail-btn detail-btn--hero ${isFavorite ? 'is-active' : ''}`}
                   type="button"
-                  onClick={handleWatchlist}
+                  onClick={handleFavorite}
                 >
-                  <Bookmark size={16} aria-hidden="true" />
-                  Listeme Ekle
+                  <Heart size={16} aria-hidden="true" />
+                  {isFavorite ? 'Favorilerden Çıkar' : 'Favorilere Ekle'}
                 </button>
                 <button
-                  className={`detail-btn detail-btn--hero ${trailerOpen ? 'is-active' : ''}`}
+                  className={`detail-btn detail-btn--hero ${isListed ? 'is-active' : ''}`}
                   type="button"
-                  onClick={toggleTrailer}
+                  onClick={handleAddToLibrary}
+                  disabled={isListed}
                 >
-                  <Play size={16} aria-hidden="true" />
-                  {trailerOpen ? 'Fragmanı Kapat' : 'Fragmanı İzle'}
+                  <Plus size={16} aria-hidden="true" />
+                  {isListed ? 'Listede' : 'Listeye Ekle'}
                 </button>
               </div>
               <div className="detail-actions-secondary">
@@ -551,13 +768,8 @@ const MovieDetailsModal = ({ movie, onClose }) => {
                   <MessageSquare size={15} aria-hidden="true" />
                   Yorum Yaz
                 </button>
-                <button className="detail-btn detail-btn--ghost" type="button" onClick={() => scrollToSection(watchSectionRef)}>
-                  <Search size={15} aria-hidden="true" />
-                  Nerede İzlenir?
-                </button>
               </div>
             </div>
-            {trailerFeedback && <p className="detail-inline-message">{trailerFeedback}</p>}
 
             <div className="detail-share-wrap">
               <ShareActions movie={activeMovie} />
@@ -591,23 +803,28 @@ const MovieDetailsModal = ({ movie, onClose }) => {
               <h3>Bilgiler</h3>
               <dl>
                 <div>
+                  <span className="detail-info-icon"><Star size={16} aria-hidden="true" /></span>
                   <dt>TMDB Puanı</dt>
                   <dd>{ratingLabel ? `${ratingLabel}/10` : 'Puan bilgisi yok'}</dd>
                 </div>
                 <div>
+                  <span className="detail-info-icon"><CheckCircle2 size={16} aria-hidden="true" /></span>
                   <dt>Kullanıcı Puanı</dt>
                   <dd>{userRating > 0 ? `${userRating}/10` : 'Henüz puan vermedin'}</dd>
                 </div>
                 <div>
+                  <span className="detail-info-icon"><Clock3 size={16} aria-hidden="true" /></span>
                   <dt>Süre</dt>
                   <dd>{runtimeLabel || 'Süre bilgisi yok'}</dd>
                 </div>
                 <div>
+                  <span className="detail-info-icon"><Languages size={16} aria-hidden="true" /></span>
                   <dt>Ülke / Dil</dt>
                   <dd>{[countryLabel, languageLabel].filter(Boolean).join(' / ') || 'Bilgi yok'}</dd>
                 </div>
                 {tvShow && (
                   <div>
+                    <span className="detail-info-icon"><Tv size={16} aria-hidden="true" /></span>
                     <dt>Dizi Takibi</dt>
                     <dd>
                       S{tracking.currentSeason || 1} B{tracking.currentEpisode || 1}
@@ -616,6 +833,7 @@ const MovieDetailsModal = ({ movie, onClose }) => {
                   </div>
                 )}
                 <div>
+                  <span className="detail-info-icon"><Clapperboard size={16} aria-hidden="true" /></span>
                   <dt>{creditLabel}</dt>
                   <dd>{creditNames.length > 0 ? creditNames.join(', ') : `${creditLabel} bilgisi bulunamadı`}</dd>
                 </div>
@@ -628,7 +846,13 @@ const MovieDetailsModal = ({ movie, onClose }) => {
               <div className="movie-modal-panel detail-section tv-progress-panel">
                 <div className="detail-panel-head">
                   <h3>İzleme Durumum</h3>
-                  <span>{getWatchStatusLabel(tracking.watchStatus)}</span>
+                  <div className="detail-panel-actions">
+                    <span>{getWatchStatusLabel(tracking.watchStatus)}</span>
+                    <button type="button" onClick={resetTvTracking}>
+                      <RotateCcw size={14} aria-hidden="true" />
+                      Durumu Sıfırla
+                    </button>
+                  </div>
                 </div>
                 <div className="tv-status-pills" role="group" aria-label="İzleme durumu">
                   {tvStatusOptions.map(option => (
@@ -654,6 +878,23 @@ const MovieDetailsModal = ({ movie, onClose }) => {
                   <i style={{ width: `${trackingProgress.progressPercent}%` }} />
                 </div>
                 <p className="tv-progress-percent">%{trackingProgress.progressPercent} tamamlandı</p>
+                <div className="tv-progress-insights">
+                  <span>
+                    <Tv size={16} aria-hidden="true" />
+                    <small>İzleme yöntemi</small>
+                    <strong>{watchMethodLabel}</strong>
+                  </span>
+                  <span>
+                    <CalendarDays size={16} aria-hidden="true" />
+                    <small>Başlangıç</small>
+                    <strong>{startedDateLabel || 'Henüz yok'}</strong>
+                  </span>
+                  <span>
+                    <Clock3 size={16} aria-hidden="true" />
+                    <small>Son izleme</small>
+                    <strong>{lastWatchedDateLabel || 'Henüz yok'}</strong>
+                  </span>
+                </div>
                 <div className="tv-progress-form">
                   <label>
                     <span>Sezon</span>
@@ -715,93 +956,52 @@ const MovieDetailsModal = ({ movie, onClose }) => {
             <div className="movie-modal-panel detail-section cast-panel">
               <div className="detail-panel-head">
                 <h3>Oyuncular</h3>
-                <span>{activeMovie.cast?.length || 0}</span>
+                <span>{castList.length}</span>
               </div>
-              {activeMovie.cast?.length > 0 ? (
-                <div className="detail-cast-scroll">
-                  {activeMovie.cast.map(actor => (
-                    <article className="detail-cast-card" key={actor.id || actor.name}>
-                      <span className="detail-cast-avatar" aria-hidden="true">
-                        {(actor.name || '?').charAt(0)}
-                      </span>
-                      <strong>{actor.name}</strong>
-                      <small>{actor.character || 'Rol bilgisi yok'}</small>
-                    </article>
-                  ))}
-                </div>
-              ) : (
-                <p className="detail-muted">Oyuncu bilgisi bulunamadı.</p>
-              )}
-            </div>
-
-            <div className="movie-modal-panel detail-section detail-watch-panel" ref={watchSectionRef}>
-              <div className="detail-panel-head">
-                <h3>Nerede İzlenir?</h3>
-                <span>Yasal platformlar</span>
-              </div>
-              {!watchLinks.hasProviderInfo && (
-                <p className="detail-muted">Bu içerik için izleme platformu bilgisi bulunamadı.</p>
-              )}
-              <div className="watch-provider-grid">
-                {visibleWatchLinks.map(link => (
-                  <a key={link.id} href={link.url} target="_blank" rel="noopener noreferrer">
-                    {link.logo ? <img src={link.logo} alt="" aria-hidden="true" /> : <Globe2 size={18} aria-hidden="true" />}
-                    <span>
-                      <strong>{link.cta}</strong>
-                      <small>{link.name}</small>
-                    </span>
-                    <ExternalLink size={14} aria-hidden="true" />
-                  </a>
-                ))}
-                <a className="watch-google-link" href={watchLinks.googleSearchLink} target="_blank" rel="noopener noreferrer">
-                  <Search size={18} aria-hidden="true" />
-                  <span>
-                    <strong>Google'da Nerede İzlenir Ara</strong>
-                    <small>Yasal izleme kaynaklarını ara</small>
-                  </span>
-                  <ExternalLink size={14} aria-hidden="true" />
-                </a>
-              </div>
-            </div>
-
-            <div
-              className={`movie-modal-panel detail-section detail-trailer-panel ${trailerOpen ? 'is-playing' : ''}`}
-              ref={trailerSectionRef}
-            >
-              <div className="detail-panel-head">
-                <h3>Fragman</h3>
-                <span>{trailerKey ? (trailerOpen ? 'Oynatılıyor' : 'Hazır') : 'Yok'}</span>
-              </div>
-              {trailerKey ? (
+              {castList.length > 0 ? (
                 <>
+                <div className={`detail-cast-scroll ${showAllCast ? 'is-expanded' : ''}`}>
+                  {visibleCastList.map(actor => {
+                    const profileUrl = getActorProfileUrl(actor);
+
+                    return (
+                      <button
+                        className="detail-cast-card"
+                        key={actor.id || actor.name}
+                        type="button"
+                        onClick={() => openActorDetails(actor)}
+                        disabled={!actor.id}
+                        aria-label={`${actor.name} oyuncu detayını aç`}
+                      >
+                        <span className="detail-cast-avatar" aria-hidden="true">
+                          {profileUrl ? (
+                            <img src={profileUrl} alt="" loading="lazy" />
+                          ) : (
+                            (actor.name || '?').charAt(0)
+                          )}
+                        </span>
+                        <strong>{actor.name}</strong>
+                        <small>{actor.character || 'Rol bilgisi yok'}</small>
+                      </button>
+                    );
+                  })}
+                </div>
+                {hasHiddenCast && (
                   <button
-                    className={`detail-trailer-card ${trailerOpen ? 'is-open' : ''}`}
+                    className="detail-cast-toggle"
                     type="button"
-                    onClick={toggleTrailer}
-                    aria-expanded={trailerOpen}
+                    onClick={() => setCastExpansion({
+                      key: castExpansionKey,
+                      expanded: !showAllCast,
+                    })}
+                    aria-expanded={showAllCast}
                   >
-                    <span><Play size={22} aria-hidden="true" /></span>
-                    <span className="detail-trailer-card-copy">
-                      <strong>{trailerOpen ? 'Fragmanı Kapat' : 'Fragmanı İzle'}</strong>
-                      <small>{trailerOpen ? 'Videoyu gizlemek için tıkla' : 'Fragman bu alanda açılır'}</small>
-                    </span>
+                    {showAllCast ? 'Daha Az Göster' : 'Tüm Oyuncuları Göster'}
                   </button>
-                  <div className={`detail-trailer-player-wrap ${trailerOpen ? 'is-open' : ''}`} aria-hidden={!trailerOpen}>
-                    <div className="detail-trailer-player-inner">
-                      {trailerOpen && (
-                        <iframe
-                          className="movie-modal-trailer detail-trailer-embed"
-                          title={`${activeMovie.title} fragman`}
-                          src={`https://www.youtube.com/embed/${trailerKey}?autoplay=1&controls=1&rel=0&modestbranding=1&playsinline=1`}
-                          allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
-                          allowFullScreen
-                        />
-                      )}
-                    </div>
-                  </div>
+                )}
                 </>
               ) : (
-                <p className="detail-muted">{loading ? 'Fragman bilgisi yükleniyor...' : 'Bu içerik için fragman bulunamadı.'}</p>
+                <p className="detail-muted">Oyuncu bilgisi bulunamadı.</p>
               )}
             </div>
 
@@ -846,6 +1046,84 @@ const MovieDetailsModal = ({ movie, onClose }) => {
         </div>
 
       </section>
+      {isHiddenSearchModalOpen && (
+        <div className="secret-watch-modal" role="dialog" aria-modal="true" aria-labelledby="secret-watch-title">
+          <button
+            className="secret-watch-backdrop"
+            type="button"
+            onClick={closeHiddenSearchModal}
+            aria-label="Gizli izleme yardımcısını kapat"
+          />
+          <section className="secret-watch-card watch-assistant-modal-card">
+            <button
+              className="secret-watch-close"
+              type="button"
+              onClick={closeHiddenSearchModal}
+              aria-label="Kapat"
+            >
+              <X size={18} aria-hidden="true" />
+            </button>
+            <p className="eyebrow">CineTrack</p>
+            <h3 id="secret-watch-title">Gizli İzleme Yardımcısı</h3>
+            <p>Bu içerik için izleme seçeneklerini arayabilirsin.</p>
+
+            {tvShow ? (
+              <div className="watch-assistant-controls">
+                <label className="watch-assistant-field">
+                  <span>Sezon Seç</span>
+                  <div className="watch-assistant-select">
+                    <Tv size={22} aria-hidden="true" />
+                    <select
+                      value={watchAssistantPicker.season}
+                      onChange={updateWatchAssistantSeason}
+                      aria-label="Sezon Seç"
+                    >
+                      <option value="">Sezon Seç</option>
+                      {buildNumberOptions(assistantSeasonCount).map(season => (
+                        <option key={season} value={season}>Sezon {season}</option>
+                      ))}
+                    </select>
+                    <ChevronDown size={22} aria-hidden="true" />
+                  </div>
+                </label>
+
+                <label className="watch-assistant-field">
+                  <span>Bölüm Seç</span>
+                  <div className="watch-assistant-select">
+                    <Clapperboard size={22} aria-hidden="true" />
+                    <select
+                      value={watchAssistantPicker.episode}
+                      onChange={updateWatchAssistantEpisode}
+                      disabled={!watchAssistantPicker.season}
+                      aria-label="Bölüm Seç"
+                    >
+                      <option value="">Bölüm Seç</option>
+                      {buildNumberOptions(assistantEpisodeCount).map(episode => (
+                        <option key={episode} value={episode}>Bölüm {episode}</option>
+                      ))}
+                    </select>
+                    <ChevronDown size={22} aria-hidden="true" />
+                  </div>
+                </label>
+              </div>
+            ) : (
+              <div className="watch-assistant-movie-note">
+                <Film size={22} aria-hidden="true" />
+                <span>Film için izleme seçeneklerini arayabilirsin.</span>
+              </div>
+            )}
+
+            <button className="watch-assistant-search" type="button" onClick={openWatchAssistantSearch}>
+              <Search size={24} aria-hidden="true" />
+              <span>Ara</span>
+            </button>
+
+            {watchAssistantFeedback && (
+              <p className="watch-assistant-message" role="alert">{watchAssistantFeedback}</p>
+            )}
+          </section>
+        </div>
+      )}
     </div>
   );
 

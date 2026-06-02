@@ -6,6 +6,8 @@ const API_BASE_URL = 'https://api.themoviedb.org/3';
 const POSTER_BASE_URL = 'https://image.tmdb.org/t/p/w500';
 const BACKDROP_BASE_URL = 'https://image.tmdb.org/t/p/w1280';
 const LOGO_BASE_URL = 'https://image.tmdb.org/t/p/w92';
+const PROFILE_BASE_URL = 'https://image.tmdb.org/t/p/w185';
+const PROFILE_LARGE_BASE_URL = 'https://image.tmdb.org/t/p/w500';
 export const LANGUAGE = 'tr-TR';
 export const FALLBACK_LANGUAGE = 'en-US';
 
@@ -168,33 +170,128 @@ const mergeLocalizedResults = (items = [], fallbackItems = [], fallbackMediaType
   )).filter(Boolean);
 };
 
-const getTrailerKey = (localizedVideos = [], fallbackVideos = []) => {
-  const trYoutubeVideos = localizedVideos.filter(video => video.site === 'YouTube');
-  const enYoutubeVideos = fallbackVideos.filter(video => video.site === 'YouTube');
-  const allYoutubeVideos = [...trYoutubeVideos, ...enYoutubeVideos];
+const normalizeVideoText = (value = '') => (
+  String(value)
+    .toLocaleLowerCase('tr-TR')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+);
 
-  const trailer =
-    trYoutubeVideos.find(video => video.type === 'Trailer' && video.official) ||
-    trYoutubeVideos.find(video => video.type === 'Teaser') ||
-    enYoutubeVideos.find(video => video.type === 'Trailer' && video.official) ||
-    enYoutubeVideos.find(video => video.type === 'Teaser') ||
-    allYoutubeVideos[0];
+const getTrailerLanguageInfo = (video = {}) => {
+  const text = normalizeVideoText(`${video.name || ''} ${video.type || ''}`);
+  const isTurkishLanguage = video.iso_639_1 === 'tr';
 
-  return trailer?.key || null;
+  if (text.includes('turkce dublaj') || text.includes('dublaj')) {
+    return { rank: 4, label: 'Türkçe Dublaj' };
+  }
+
+  if (
+    text.includes('turkce altyazili') ||
+    text.includes('turkce altyazi') ||
+    text.includes('altyazili') ||
+    text.includes('altyazi')
+  ) {
+    return { rank: 3, label: 'Türkçe Altyazı' };
+  }
+
+  if (text.includes('turkce fragman') || text.includes('turkce') || isTurkishLanguage) {
+    return { rank: 2, label: 'Türkçe' };
+  }
+
+  return { rank: 1, label: 'Orijinal' };
+};
+
+const isRelevantTrailerVideo = (video = {}) => {
+  const text = normalizeVideoText(`${video.name || ''} ${video.type || ''}`);
+  return (
+    ['Trailer', 'Teaser', 'Clip'].includes(video.type) ||
+    text.includes('fragman') ||
+    text.includes('trailer') ||
+    text.includes('teaser') ||
+    text.includes('preview') ||
+    text.includes('sneak peek') ||
+    text.includes('promo') ||
+    text.includes('resmi') ||
+    text.includes('official')
+  );
+};
+
+const scoreTrailerVideo = (video = {}, sourcePriority = 0) => {
+  const text = normalizeVideoText(`${video.name || ''} ${video.type || ''}`);
+  const languageInfo = getTrailerLanguageInfo(video);
+  const typeScore = {
+    Trailer: 48,
+    Teaser: 34,
+    Clip: 20,
+  }[video.type] || 0;
+  const officialScore = video.official || text.includes('resmi') || text.includes('official') ? 24 : 0;
+  const previewScore = text.includes('preview') || text.includes('sneak peek') || text.includes('promo') ? 12 : 0;
+  const dateScore = video.published_at ? Math.min(new Date(video.published_at).getTime() / 100000000000, 10) : 0;
+
+  return (sourcePriority * 1000) + (languageInfo.rank * 100) + typeScore + officialScore + previewScore + dateScore;
+};
+
+const formatTrailerVideo = (video = {}, metadata = {}) => {
+  if (!video?.key) return null;
+
+  const languageInfo = getTrailerLanguageInfo(video);
+
+  return {
+    id: video.id || video.key,
+    key: video.key,
+    name: video.name || 'Fragman',
+    type: video.type || 'Video',
+    site: video.site || 'YouTube',
+    official: Boolean(video.official),
+    publishedAt: video.published_at || '',
+    badgeLabel: languageInfo.label,
+    thumbnail: `https://img.youtube.com/vi/${video.key}/hqdefault.jpg`,
+    ...metadata,
+  };
+};
+
+const selectBestTrailerVideo = (localizedVideos = [], fallbackVideos = [], metadata = {}) => {
+  const candidates = [
+    ...localizedVideos.map(video => ({ ...video, sourcePriority: 2 })),
+    ...fallbackVideos.map(video => ({ ...video, sourcePriority: 1 })),
+  ].filter(video => video?.site === 'YouTube' && video.key);
+
+  if (candidates.length === 0) return null;
+
+  const relevantCandidates = candidates.filter(isRelevantTrailerVideo);
+  const pool = relevantCandidates.length > 0 ? relevantCandidates : candidates;
+  const selected = [...pool].sort((a, b) => scoreTrailerVideo(b, b.sourcePriority) - scoreTrailerVideo(a, a.sourcePriority))[0];
+
+  return formatTrailerVideo(selected, metadata);
+};
+
+const getTrailerKey = (localizedVideos = [], fallbackVideos = []) => (
+  selectBestTrailerVideo(localizedVideos, fallbackVideos)?.key || null
+);
+
+const getLocalizedVideos = async (path) => {
+  const [localizedResult, fallbackResult] = await Promise.allSettled([
+    fetchTmdb(path, withLanguage({}, LANGUAGE)),
+    fetchTmdb(path, withLanguage({}, FALLBACK_LANGUAGE)),
+  ]);
+
+  return {
+    localizedVideos: localizedResult.status === 'fulfilled'
+      ? localizedResult.value?.results || []
+      : [],
+    fallbackVideos: fallbackResult.status === 'fulfilled'
+      ? fallbackResult.value?.results || []
+      : [],
+  };
+};
+
+const getBestTrailerForPath = async (path, metadata = {}) => {
+  const { localizedVideos, fallbackVideos } = await getLocalizedVideos(path);
+  return selectBestTrailerVideo(localizedVideos, fallbackVideos, metadata);
 };
 
 const getLocalizedTrailerKey = async (mediaId, mediaType) => {
-  const [localizedResult, fallbackResult] = await Promise.allSettled([
-    fetchTmdb(`/${mediaType}/${mediaId}/videos`, withLanguage({}, LANGUAGE)),
-    fetchTmdb(`/${mediaType}/${mediaId}/videos`, withLanguage({}, FALLBACK_LANGUAGE)),
-  ]);
-
-  const localizedVideos = localizedResult.status === 'fulfilled'
-    ? localizedResult.value?.results || []
-    : [];
-  const fallbackVideos = fallbackResult.status === 'fulfilled'
-    ? fallbackResult.value?.results || []
-    : [];
+  const { localizedVideos, fallbackVideos } = await getLocalizedVideos(`/${mediaType}/${mediaId}/videos`);
 
   return getTrailerKey(localizedVideos, fallbackVideos);
 };
@@ -343,6 +440,42 @@ const formatRelatedMedia = (localizedData = {}, cleanedType = 'movie') => {
   ).slice(0, 10);
 };
 
+const formatPersonImages = (profiles = []) => (
+  profiles
+    .filter(profile => profile.file_path)
+    .sort((a, b) => (b.vote_average || 0) - (a.vote_average || 0))
+    .slice(0, 12)
+    .map(profile => ({
+      id: profile.file_path,
+      thumb: `${PROFILE_BASE_URL}${profile.file_path}`,
+      url: `${PROFILE_LARGE_BASE_URL}${profile.file_path}`,
+      width: profile.width || null,
+      height: profile.height || null,
+      voteAverage: profile.vote_average || 0,
+    }))
+);
+
+const formatPersonCredits = (credits = {}) => {
+  const castCredits = credits.cast || [];
+
+  return uniqueBy(
+    castCredits
+      .filter(item => item?.id && (item.media_type === 'movie' || item.media_type === 'tv'))
+      .map(item => ({
+        ...formatMedia(item, item.media_type === 'tv' ? 'tv' : 'movie'),
+        character: item.character || '',
+        order: Number(item.order) || 999,
+        popularity: Number(item.popularity) || 0,
+      }))
+      .sort((a, b) => {
+        const popularityDiff = (b.popularity || 0) - (a.popularity || 0);
+        if (Math.abs(popularityDiff) > 0.01) return popularityDiff;
+        return String(b.releaseDate || '').localeCompare(String(a.releaseDate || ''));
+      }),
+    item => `${item.mediaType}:${item.id}`,
+  ).slice(0, 24);
+};
+
 const sortMixedMedia = (items, sortBy) => {
   if (sortBy === 'vote_average.desc') {
     return items.sort((a, b) => (b.rating || 0) - (a.rating || 0));
@@ -425,10 +558,13 @@ export const getMediaFullDetails = async (mediaId, mediaType = 'movie') => {
       watchProviders: formatWatchProviders(localizedData['watch/providers']),
       similarContent: formatRelatedMedia(localizedData, cleanedType),
       ...crewSummary,
-      cast: (localizedData.credits?.cast || []).slice(0, 8).map(actor => ({
+      cast: (localizedData.credits?.cast || []).slice(0, 12).map(actor => ({
         id: actor.id,
         name: actor.name,
         character: actor.character,
+        profile_path: actor.profile_path || null,
+        profilePath: actor.profile_path || null,
+        profileUrl: actor.profile_path ? `${PROFILE_BASE_URL}${actor.profile_path}` : null,
       })),
     };
   } catch (error) {
@@ -439,6 +575,53 @@ export const getMediaFullDetails = async (mediaId, mediaType = 'movie') => {
 
 export const getMovieFullDetails = (movieId) => getMediaFullDetails(movieId, 'movie');
 export const getTvShowFullDetails = (showId) => getMediaFullDetails(showId, 'tv');
+
+export const getPersonDetails = async (personId) => {
+  try {
+    if (!personId) return null;
+
+    const { data, fallbackData } = await fetchLocalizedTmdb(`/person/${personId}`, {
+      append_to_response: 'images,combined_credits',
+    });
+
+    if (!data) return null;
+
+    const biography = hasText(data.biography)
+      ? data.biography.trim()
+      : hasText(fallbackData?.biography)
+        ? fallbackData.biography.trim()
+        : '';
+    const creditsSource = data.combined_credits?.cast?.length
+      ? data.combined_credits
+      : fallbackData?.combined_credits || {};
+    const imageSource = data.images?.profiles?.length
+      ? data.images.profiles
+      : fallbackData?.images?.profiles || [];
+
+    return {
+      id: data.id,
+      name: data.name || fallbackData?.name || 'Bilgi yok',
+      biography,
+      birthday: data.birthday || fallbackData?.birthday || '',
+      deathday: data.deathday || fallbackData?.deathday || '',
+      placeOfBirth: data.place_of_birth || fallbackData?.place_of_birth || '',
+      knownForDepartment: data.known_for_department || fallbackData?.known_for_department || '',
+      popularity: data.popularity || fallbackData?.popularity || 0,
+      profilePath: data.profile_path || fallbackData?.profile_path || null,
+      profileUrl: data.profile_path || fallbackData?.profile_path
+        ? `${PROFILE_LARGE_BASE_URL}${data.profile_path || fallbackData.profile_path}`
+        : null,
+      profileThumb: data.profile_path || fallbackData?.profile_path
+        ? `${PROFILE_BASE_URL}${data.profile_path || fallbackData.profile_path}`
+        : null,
+      images: formatPersonImages(imageSource),
+      credits: formatPersonCredits(creditsSource),
+    };
+  } catch (error) {
+    console.error('Error fetching person details:', error);
+    return null;
+  }
+};
 
 export const discoverMoviesByGenres = async (genreIds = [], excludedMovieIds = [], options = {}) => {
   const { limit = 8, page = 1, sortBy = 'vote_average.desc' } = options;
@@ -678,6 +861,41 @@ export const getMediaTrailer = async (mediaId, mediaType = 'movie') => {
   }
 };
 
+export const getSmartTrailerVideo = async ({
+  mediaId,
+  mediaType = 'movie',
+  seasonNumber = 1,
+} = {}) => {
+  try {
+    if (!mediaId) return null;
+
+    const cleanedType = mediaType === 'tv' ? 'tv' : 'movie';
+
+    if (cleanedType === 'movie') {
+      return await getBestTrailerForPath(`/movie/${mediaId}/videos`, {
+        scope: 'movie',
+        scopeLabel: 'Film fragmanı',
+      });
+    }
+
+    const season = Math.max(1, Number(seasonNumber) || 1);
+
+    const seasonTrailer = await getBestTrailerForPath(`/tv/${mediaId}/season/${season}/videos`, {
+      scope: 'season',
+      scopeLabel: `Sezon ${season} Fragmanı`,
+    });
+
+    if (seasonTrailer) return seasonTrailer;
+
+    return await getBestTrailerForPath(`/tv/${mediaId}/videos`, {
+      scope: 'show',
+      scopeLabel: 'Dizi fragmanı',
+    });
+  } catch {
+    return null;
+  }
+};
+
 export const getMovieTrailer = (movieId) => getMediaTrailer(movieId, 'movie');
 export const getTvShowTrailer = (showId) => getMediaTrailer(showId, 'tv');
 
@@ -689,6 +907,7 @@ export default {
   getMovieFullDetails,
   getTvShowFullDetails,
   getMediaFullDetails,
+  getPersonDetails,
   discoverMoviesByGenres,
   discoverTvShowsByGenres,
   getMovieCatalog,
@@ -702,6 +921,7 @@ export default {
   getMovieTrailer,
   getTvShowTrailer,
   getMediaTrailer,
+  getSmartTrailerVideo,
   GENRE_MAP,
   MOVIE_GENRE_MAP,
   TV_GENRE_MAP,

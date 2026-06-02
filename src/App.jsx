@@ -16,6 +16,7 @@ const Settings = lazy(() => import('./pages/Settings'));
 const Statistics = lazy(() => import('./pages/Statistics'));
 const UserProfile = lazy(() => import('./pages/UserProfile'));
 const AdminPanel = lazy(() => import('./pages/AdminPanel'));
+const ActorDetails = lazy(() => import('./pages/ActorDetails'));
 const AdminRoute = lazy(() => import('./components/routes/AdminRoute'));
 
 const AppFallback = () => {
@@ -42,6 +43,8 @@ const AppRoutes = () => {
         <Suspense fallback={<AppFallback />}>
           <Routes>
             <Route path="/user/:userId" element={<UserProfile />} />
+            <Route path="/actor/:actorId" element={<ActorDetails />} />
+            <Route path="/oyuncu/:actorId" element={<ActorDetails />} />
             <Route path="*" element={<AuthScreen />} />
           </Routes>
         </Suspense>
@@ -62,6 +65,8 @@ const AppRoutes = () => {
           <Route path="/istatistikler" element={<Statistics />} />
           <Route path="/account-settings" element={<AccountSettings />} />
           <Route path="/user/:userId" element={<UserProfile />} />
+          <Route path="/actor/:actorId" element={<ActorDetails />} />
+          <Route path="/oyuncu/:actorId" element={<ActorDetails />} />
           <Route path="/settings" element={<Settings />} />
           <Route
             path="/admin"

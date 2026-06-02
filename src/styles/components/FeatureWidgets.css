@@ -358,6 +358,11 @@
   background: rgba(var(--primary-rgb), 0.14);
 }
 
+.share-btn--whatsapp {
+  border-color: rgba(34, 197, 94, 0.3);
+  background: rgba(34, 197, 94, 0.12);
+}
+
 .share-btn:hover {
   border-color: rgba(var(--primary-rgb), 0.45);
   background: rgba(var(--primary-rgb), 0.2);

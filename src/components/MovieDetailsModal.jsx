@@ -13,6 +13,7 @@ import {
   Heart,
   Languages,
   MessageSquare,
+  Play,
   Plus,
   RotateCcw,
   Search,
@@ -22,7 +23,7 @@ import {
 } from 'lucide-react';
 import CommentsSection from './CommentsSection';
 import ShareActions from './ShareActions';
-import { getMediaFullDetails } from '../services/tmdb';
+import { getMediaFullDetails, getSmartTrailerVideo } from '../services/tmdb';
 import { useMovies } from '../context/MovieContext';
 import {
   getMediaKey,
@@ -173,6 +174,10 @@ const MovieDetailsModal = ({ movie, onClose }) => {
   const [watchAssistantFeedback, setWatchAssistantFeedback] = useState('');
   const [trackingDraft, setTrackingDraft] = useState(null);
   const [castExpansion, setCastExpansion] = useState({ key: '', expanded: false });
+  const [trailer, setTrailer] = useState(null);
+  const [trailerLoading, setTrailerLoading] = useState(false);
+  const [trailerSeason, setTrailerSeason] = useState('');
+  const [trailerOpen, setTrailerOpen] = useState(false);
   const [isHiddenSearchModalOpen, setIsHiddenSearchModalOpen] = useState(false);
   const [hiddenClickCount, setHiddenClickCount] = useState(0);
   const [clickTimeout, setClickTimeout] = useState(null);
@@ -286,6 +291,8 @@ const MovieDetailsModal = ({ movie, onClose }) => {
     activeMovie.updatedAt ||
     activeMovie.ratingAt,
   );
+  const trailerSeasonNumber = tvShow ? Math.max(1, Number(trailerSeason) || Number(tracking.currentSeason) || 1) : 1;
+  const trailerSeasonCount = tvShow ? Math.max(Number(activeMovie.totalSeasons) || 0, trailerSeasonNumber, 1) : 0;
 
   useLayoutEffect(() => {
     setDetailModalPageState(true);
@@ -346,6 +353,9 @@ const MovieDetailsModal = ({ movie, onClose }) => {
     const timer = window.setTimeout(() => {
       setWatchAssistantFeedback('');
       setIsHiddenSearchModalOpen(false);
+      setTrailer(null);
+      setTrailerOpen(false);
+      setTrailerSeason(tvShow ? String(defaultAssistantSeason) : '');
       setWatchAssistantPicker(tvShow
         ? {
           season: String(defaultAssistantSeason),
@@ -356,6 +366,38 @@ const MovieDetailsModal = ({ movie, onClose }) => {
 
     return () => window.clearTimeout(timer);
   }, [mediaDetailKey, tvShow, defaultAssistantSeason, defaultAssistantEpisode]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (!activeMovie?.id) return undefined;
+
+    const timer = window.setTimeout(() => {
+      setTrailerLoading(true);
+      setTrailerOpen(false);
+
+      getSmartTrailerVideo({
+        mediaId: activeMovie.id,
+        mediaType,
+        seasonNumber: trailerSeasonNumber,
+      })
+        .then(nextTrailer => {
+          if (cancelled) return;
+          setTrailer(nextTrailer);
+        })
+        .catch(() => {
+          if (!cancelled) setTrailer(null);
+        })
+        .finally(() => {
+          if (!cancelled) setTrailerLoading(false);
+        });
+    }, 0);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [activeMovie?.id, mediaType, trailerSeasonNumber]);
 
   useEffect(() => {
     if (!hiddenClickCount || isHiddenSearchModalOpen) return undefined;
@@ -952,6 +994,75 @@ const MovieDetailsModal = ({ movie, onClose }) => {
                 </div>
               </div>
             )}
+
+            <div className={`movie-modal-panel detail-section detail-trailer-panel ${trailerOpen && trailer ? 'is-playing' : ''}`}>
+              <div className="detail-panel-head">
+                <h3>Fragman</h3>
+                <span>{trailer?.badgeLabel || (trailerLoading ? 'Aranıyor' : 'YouTube')}</span>
+              </div>
+
+              {tvShow && (
+                <div className="detail-trailer-controls">
+                  <label>
+                    <span>Sezon</span>
+                    <select
+                      value={String(trailerSeasonNumber)}
+                      onChange={event => setTrailerSeason(event.target.value)}
+                    >
+                      {buildNumberOptions(trailerSeasonCount).map(season => (
+                        <option key={season} value={season}>Sezon {season}</option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+              )}
+
+              {trailerLoading ? (
+                <div className="detail-trailer-loading" role="status">
+                  <span aria-hidden="true" />
+                  <strong>Fragman aranıyor</strong>
+                  <small>Önce Türkçe dublaj, sonra Türkçe altyazılı ve orijinal fragmanlar kontrol ediliyor.</small>
+                </div>
+              ) : trailer ? (
+                <>
+                  <button
+                    className={`detail-trailer-card ${trailerOpen ? 'is-open' : ''}`}
+                    type="button"
+                    style={{ '--trailer-thumb': `url(${trailer.thumbnail})` }}
+                    onClick={() => setTrailerOpen(current => !current)}
+                    aria-expanded={trailerOpen}
+                  >
+                    <span className="detail-trailer-thumb">
+                      <Play size={22} aria-hidden="true" />
+                    </span>
+                    <span className="detail-trailer-card-copy">
+                      <strong>{trailer.name || 'Fragman'}</strong>
+                      <small>{[trailer.scopeLabel, trailer.badgeLabel, trailer.official ? 'Resmi' : null].filter(Boolean).join(' · ')}</small>
+                    </span>
+                  </button>
+
+                  <div className={`detail-trailer-player-wrap ${trailerOpen ? 'is-open' : ''}`}>
+                    <div className="detail-trailer-player-inner">
+                      {trailerOpen && (
+                        <iframe
+                          className="detail-trailer-embed"
+                          src={`https://www.youtube.com/embed/${trailer.key}?autoplay=1&rel=0&modestbranding=1`}
+                          title={`${activeMovie.title} fragmanı`}
+                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                          allowFullScreen
+                        />
+                      )}
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="detail-trailer-empty">
+                  <Film aria-hidden="true" />
+                  <strong>Fragman bulunamadı</strong>
+                  <small>Bu içerik için uygun YouTube fragmanı bulunamadı.</small>
+                </div>
+              )}
+            </div>
 
             <div className="movie-modal-panel detail-section cast-panel">
               <div className="detail-panel-head">

@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
-import { Bell, Megaphone, Sparkles, Trash2, TriangleAlert, Wrench, X } from 'lucide-react';
+import { Bell, Heart, ListChecks, Megaphone, MessageSquare, ShieldAlert, Sparkles, Trash2, TriangleAlert, Wrench, X } from 'lucide-react';
 import { useNotifications } from '../context/NotificationContext';
 import {
   formatNotificationTime,
   matchesNotificationFilter,
   NOTIFICATION_FILTERS,
+  NOTIFICATION_TYPES,
 } from '../utils/notificationHelpers';
 import '../styles/components/NotificationCenter.css';
 
@@ -68,12 +69,22 @@ const NotificationCenter = () => {
     }
   };
 
-  const getNotificationIcon = (notification) => {
-    if (notification.announcementType === 'feature' || notification.type === 'feature') return Sparkles;
-    if (notification.announcementType === 'maintenance') return Wrench;
-    if (notification.announcementType === 'warning' || notification.type === 'warning' || notification.type === 'account') return TriangleAlert;
-    if (notification.source === 'announcement' || notification.source === 'admin') return Megaphone;
-    return Bell;
+  const getNotificationPresentation = (notification) => {
+    if (notification.type === NOTIFICATION_TYPES.COMMENT) return { icon: MessageSquare, label: 'Yeni yorum', tone: 'comment' };
+    if (notification.type === NOTIFICATION_TYPES.MODERATION) return { icon: ShieldAlert, label: 'Moderasyon', tone: 'moderation' };
+    if (notification.announcementType === 'feature' || notification.type === 'feature') return { icon: Sparkles, label: 'Yeni özellik', tone: 'feature' };
+    if (notification.announcementType === 'maintenance') return { icon: Wrench, label: 'Sistem', tone: 'system' };
+    if (notification.announcementType === 'warning' || notification.type === 'warning' || notification.type === 'account') return { icon: TriangleAlert, label: 'Moderasyon', tone: 'moderation' };
+    if (notification.source === 'announcement' || notification.source === 'admin') return { icon: Megaphone, label: notification.badge || 'Admin duyurusu', tone: 'announcement' };
+    if ([NOTIFICATION_TYPES.FAVORITE, NOTIFICATION_TYPES.WATCHLIST, NOTIFICATION_TYPES.WATCHED, NOTIFICATION_TYPES.RATING].includes(notification.type)) {
+      return {
+        icon: notification.type === NOTIFICATION_TYPES.FAVORITE ? Heart : ListChecks,
+        label: 'Liste güncellemesi',
+        tone: 'library',
+      };
+    }
+    if (notification.type === NOTIFICATION_TYPES.SYSTEM) return { icon: Wrench, label: 'Sistem', tone: 'system' };
+    return { icon: Bell, label: notification.badge || 'Bildirim', tone: 'default' };
   };
 
   return (
@@ -129,7 +140,8 @@ const NotificationCenter = () => {
             <div className="notification-list">
               {filtered.length > 0 ? (
                 filtered.map(notification => {
-                  const Icon = getNotificationIcon(notification);
+                  const presentation = getNotificationPresentation(notification);
+                  const Icon = presentation.icon;
 
                   return (
                     <article
@@ -139,6 +151,7 @@ const NotificationCenter = () => {
                         notification.read ? 'read' : '',
                         notification.source === 'announcement' ? 'announcement' : '',
                         notification.source === 'admin' ? 'admin' : '',
+                        `tone-${presentation.tone}`,
                       ].filter(Boolean).join(' ')}
                     >
                     <button
@@ -148,7 +161,7 @@ const NotificationCenter = () => {
                     >
                       <span className="notification-item-kicker">
                         <Icon size={14} aria-hidden="true" />
-                        {notification.badge || 'Bildirim'}
+                        {presentation.label}
                       </span>
                       <strong>{notification.title}</strong>
                       <p>{notification.message}</p>

@@ -249,8 +249,8 @@ const AdminDashboard = ({ onNavigate }) => {
 
       <div className="admin-dashboard-chart-grid">
         <DashboardChartCard title="Son 7 Gün Kullanıcı Kayıtları">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={dashboard.userRegistrationsSeries}>
+          <ResponsiveContainer width="100%" height={200} minWidth={240} minHeight={180}>
+            <LineChart data={dashboard.userRegistrationsSeries} margin={{ top: 12, right: 14, left: 0, bottom: 6 }}>
               <CartesianGrid stroke="rgba(255,255,255,0.08)" vertical={false} />
               <XAxis dataKey="label" tick={{ fill: '#a9b7cc', fontSize: 11 }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fill: '#7f8da3', fontSize: 11 }} axisLine={false} tickLine={false} allowDecimals={false} width={28} />
@@ -261,8 +261,8 @@ const AdminDashboard = ({ onNavigate }) => {
         </DashboardChartCard>
 
         <DashboardChartCard title="Son 7 Gün Yorum Grafiği">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={dashboard.commentSeries}>
+          <ResponsiveContainer width="100%" height={200} minWidth={240} minHeight={180}>
+            <BarChart data={dashboard.commentSeries} margin={{ top: 12, right: 14, left: 0, bottom: 6 }}>
               <CartesianGrid stroke="rgba(255,255,255,0.08)" vertical={false} />
               <XAxis dataKey="label" tick={{ fill: '#a9b7cc', fontSize: 11 }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fill: '#7f8da3', fontSize: 11 }} axisLine={false} tickLine={false} allowDecimals={false} width={28} />
@@ -274,8 +274,8 @@ const AdminDashboard = ({ onNavigate }) => {
 
         <DashboardChartCard title="Film / Dizi Dağılımı" actionLabel={null}>
           <div className="admin-donut-layout">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
+            <ResponsiveContainer width="100%" height={190} minWidth={190} minHeight={170}>
+              <PieChart margin={{ top: 4, right: 8, bottom: 4, left: 8 }}>
                 <Pie
                   data={dashboard.contentDistribution}
                   dataKey="value"
@@ -305,8 +305,8 @@ const AdminDashboard = ({ onNavigate }) => {
         </DashboardChartCard>
 
         <DashboardChartCard title="İzlenen / İzlenecek / Favori" actionLabel={null}>
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={dashboard.libraryStatusDistribution}>
+          <ResponsiveContainer width="100%" height={200} minWidth={240} minHeight={180}>
+            <BarChart data={dashboard.libraryStatusDistribution} margin={{ top: 12, right: 14, left: 0, bottom: 6 }}>
               <CartesianGrid stroke="rgba(255,255,255,0.08)" vertical={false} />
               <XAxis dataKey="name" tick={{ fill: '#a9b7cc', fontSize: 11 }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fill: '#7f8da3', fontSize: 11 }} axisLine={false} tickLine={false} allowDecimals={false} width={34} />

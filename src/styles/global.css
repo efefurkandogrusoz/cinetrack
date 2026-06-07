@@ -78,7 +78,8 @@ body {
 }
 
 button,
-input {
+input,
+select {
   font: inherit;
 }
 
@@ -176,6 +177,49 @@ input[type='text'] {
   color: #fff !important;
   outline: none;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+select {
+  color-scheme: dark;
+}
+
+select:not([multiple]) {
+  background-color: #141416;
+  color: #fff;
+  outline: 0;
+}
+
+select:focus,
+select:focus-visible {
+  border-color: rgba(var(--primary-rgb), 0.82) !important;
+  box-shadow: 0 0 0 3px rgba(var(--primary-rgb), 0.18) !important;
+  outline: 0;
+}
+
+select:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
+select option {
+  min-height: 34px;
+  padding: 8px 12px;
+  background-color: #171719;
+  color: #f4f4f5;
+}
+
+select option:checked {
+  background:
+    linear-gradient(0deg, rgba(var(--primary-rgb), 0.34), rgba(var(--primary-rgb), 0.34)),
+    #202024;
+  color: #fff;
+  box-shadow: 0 0 0 100vmax rgba(var(--primary-rgb), 0.28) inset;
+}
+
+select option:hover,
+select option:focus {
+  background-color: #252528;
+  color: #fff;
 }
 
 .form-control:-webkit-autofill,

@@ -1,18 +1,24 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Ban, CheckCircle2, EyeOff, ShieldAlert, Trash2, UserX, XCircle } from 'lucide-react';
+import { Ban, CheckCircle2, EyeOff, RotateCcw, Save, ShieldAlert, Trash2, UserX, XCircle } from 'lucide-react';
 import { useNotifications } from '../../context/NotificationContext';
 import {
   addBannedWord,
   deleteAdminComment,
   deleteBannedWord,
+  saveModerationRules,
   sendAdminNotification,
   subscribeBannedWords,
+  subscribeModerationRules,
   subscribePendingComments,
   updateBannedWordActive,
   updateCommentModerationStatus,
   updateUserDisabled,
 } from '../../services/adminService';
 import { formatAdminDate } from '../../utils/admin';
+import {
+  DEFAULT_MODERATION_RULES,
+  normalizeModerationRules,
+} from '../../utils/moderationRules';
 
 const statusLabels = {
   pending: 'İnceleme bekliyor',
@@ -28,6 +34,10 @@ const AdminModeration = () => {
   const [wordDraft, setWordDraft] = useState('');
   const [loadingWords, setLoadingWords] = useState(true);
   const [loadingComments, setLoadingComments] = useState(true);
+  const [loadingRules, setLoadingRules] = useState(true);
+  const [savingRules, setSavingRules] = useState(false);
+  const [rules, setRules] = useState(DEFAULT_MODERATION_RULES);
+  const [rulesDraft, setRulesDraft] = useState(DEFAULT_MODERATION_RULES);
   const [busyId, setBusyId] = useState('');
   const [filter, setFilter] = useState('pending');
   const [error, setError] = useState('');
@@ -62,6 +72,23 @@ const AdminModeration = () => {
     return () => unsubscribe();
   }, []);
 
+  useEffect(() => {
+    const unsubscribe = subscribeModerationRules(
+      (nextRules) => {
+        const normalized = normalizeModerationRules(nextRules);
+        setRules(normalized);
+        setRulesDraft(normalized);
+        setLoadingRules(false);
+      },
+      () => {
+        setError('Moderasyon kuralları sunucudan yüklenemedi. Yerel ayarlar gösteriliyor.');
+        setLoadingRules(false);
+      },
+    );
+
+    return () => unsubscribe();
+  }, []);
+
   const filteredComments = useMemo(() => (
     filter === 'all' ? comments : comments.filter(comment => (comment.status || 'published') === filter)
   ), [comments, filter]);
@@ -79,6 +106,35 @@ const AdminModeration = () => {
     } catch {
       setError('Yasaklı kelime eklenemedi.');
       showToast('Yasaklı kelime eklenemedi.', 'error');
+    }
+  };
+
+  const updateRule = (key, value) => {
+    setRulesDraft(current => normalizeModerationRules({
+      ...current,
+      [key]: value,
+    }));
+  };
+
+  const resetRuleDraft = () => {
+    setRulesDraft(DEFAULT_MODERATION_RULES);
+  };
+
+  const saveRuleDraft = async (event) => {
+    event.preventDefault();
+    setSavingRules(true);
+    setError('');
+    try {
+      const normalized = normalizeModerationRules(rulesDraft);
+      await saveModerationRules(normalized);
+      setRules(normalized);
+      setRulesDraft(normalized);
+      showToast('Moderasyon kuralları kaydedildi.', 'success');
+    } catch {
+      setError('Moderasyon kuralları yerel olarak güncellendi ancak sunucuya kaydedilemedi.');
+      showToast('Kurallar sunucuya kaydedilemedi.', 'error');
+    } finally {
+      setSavingRules(false);
     }
   };
 
@@ -102,7 +158,7 @@ const AdminModeration = () => {
     () => sendAdminNotification({
       title: 'Yorum uyarısı',
       message: 'Bir yorumunuz moderasyon kurallarına takıldı. Lütfen yorum kurallarına dikkat edin.',
-      type: 'account',
+      type: 'moderation',
       targetType: 'user',
       targetUserId: comment.userId,
     }),
@@ -159,12 +215,121 @@ const AdminModeration = () => {
 
         <section className="admin-panel-card">
           <h3>Moderasyon Kuralları</h3>
-          <div className="admin-rule-list">
-            <span>En az 10 karakter ve 3 kelime</span>
-            <span>Yasaklı kelime yakalanırsa pending</span>
-            <span>Tekrarlanan yorum engellenir</span>
-            <span>Aşırı büyük harf pending olur</span>
-          </div>
+          {loadingRules ? (
+            <p className="admin-empty">Kurallar yükleniyor...</p>
+          ) : (
+            <form className="admin-form-grid moderation-rules-form" onSubmit={saveRuleDraft}>
+              <label>
+                <span>Minimum yorum karakter sayısı</span>
+                <input
+                  type="number"
+                  min="1"
+                  max="500"
+                  value={rulesDraft.minimumCommentLength}
+                  onChange={event => updateRule('minimumCommentLength', event.target.value)}
+                />
+              </label>
+              <label>
+                <span>Minimum kelime sayısı</span>
+                <input
+                  type="number"
+                  min="1"
+                  max="80"
+                  value={rulesDraft.minimumWordCount}
+                  onChange={event => updateRule('minimumWordCount', event.target.value)}
+                />
+              </label>
+              <label>
+                <span>Büyük harf oranı limiti (%)</span>
+                <input
+                  type="number"
+                  min="10"
+                  max="100"
+                  value={Math.round(rulesDraft.uppercaseRatioLimit * 100)}
+                  onChange={event => updateRule('uppercaseRatioLimit', Number(event.target.value) / 100)}
+                />
+              </label>
+              <label className="admin-toggle">
+                <input
+                  type="checkbox"
+                  checked={rulesDraft.uppercaseRuleEnabled}
+                  onChange={event => updateRule('uppercaseRuleEnabled', event.target.checked)}
+                />
+                <span>
+                  <strong>Büyük harf kuralı aktif</strong>
+                  <small>Limit aşılırsa yorum admin onayına düşer.</small>
+                </span>
+              </label>
+              <label className="admin-toggle">
+                <input
+                  type="checkbox"
+                  checked={rulesDraft.bannedWordFilterEnabled}
+                  onChange={event => updateRule('bannedWordFilterEnabled', event.target.checked)}
+                />
+                <span>
+                  <strong>Küfür/kötü kelime filtresi</strong>
+                  <small>Aktif yasaklı kelimeler pending sebebi olur.</small>
+                </span>
+              </label>
+              <label className="admin-toggle">
+                <input
+                  type="checkbox"
+                  checked={rulesDraft.linkCommentsPending}
+                  onChange={event => updateRule('linkCommentsPending', event.target.checked)}
+                />
+                <span>
+                  <strong>Link içeren yorumlar pending</strong>
+                  <small>URL içeren yorumlar incelemeye alınır.</small>
+                </span>
+              </label>
+              <label className="admin-toggle">
+                <input
+                  type="checkbox"
+                  checked={rulesDraft.publishNewCommentsImmediately}
+                  onChange={event => updateRule('publishNewCommentsImmediately', event.target.checked)}
+                />
+                <span>
+                  <strong>Yeni yorumlar direkt yayınlansın</strong>
+                  <small>Kapalıysa tüm yeni yorumlar onaya düşer.</small>
+                </span>
+              </label>
+              <label className="admin-toggle">
+                <input
+                  type="checkbox"
+                  checked={rulesDraft.allowShortComments}
+                  onChange={event => updateRule('allowShortComments', event.target.checked)}
+                />
+                <span>
+                  <strong>Kısa yorumlara izin ver</strong>
+                  <small>Kapalıysa kısa yorumlar yayın yerine onaya düşer.</small>
+                </span>
+              </label>
+              <label className="admin-toggle">
+                <input
+                  type="checkbox"
+                  checked={rulesDraft.emojiHeavyPending}
+                  onChange={event => updateRule('emojiHeavyPending', event.target.checked)}
+                />
+                <span>
+                  <strong>Emoji ağırlıklı yorumlar pending</strong>
+                  <small>Emoji oranı yüksek yorumlar incelenir.</small>
+                </span>
+              </label>
+              <div className="admin-form-actions">
+                <button type="submit" disabled={savingRules}>
+                  <Save size={15} aria-hidden="true" />
+                  {savingRules ? 'Kaydediliyor' : 'Kuralları Kaydet'}
+                </button>
+                <button type="button" onClick={resetRuleDraft} disabled={savingRules}>
+                  <RotateCcw size={15} aria-hidden="true" />
+                  Varsayılanlara Dön
+                </button>
+                <span className="admin-muted">
+                  Aktif limit: {rules.minimumCommentLength} karakter, {rules.minimumWordCount} kelime, %{Math.round(rules.uppercaseRatioLimit * 100)} büyük harf.
+                </span>
+              </div>
+            </form>
+          )}
         </section>
       </div>
 

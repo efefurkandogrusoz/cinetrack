@@ -4,6 +4,7 @@
   position: relative;
   display: flex;
   flex-direction: column;
+  width: 100%;
   height: 100%;
   min-width: 0;
   overflow: hidden;
@@ -26,7 +27,9 @@
 
 .card-poster-wrap {
   position: relative;
-  flex: 1;
+  flex: 0 0 auto;
+  width: 100%;
+  min-height: 0;
   overflow: hidden;
   aspect-ratio: 2 / 3;
   background: linear-gradient(145deg, #1e1e22, #101012);
@@ -178,6 +181,7 @@
   left: 8px;
   display: grid;
   gap: 4px;
+  min-width: 0;
   pointer-events: none;
 }
 
@@ -193,6 +197,8 @@
 
 .card-tv-progress-meter {
   overflow: hidden;
+  width: 100%;
+  max-width: 100%;
   height: 3px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.18);
@@ -327,8 +333,11 @@
 /* Footer — başlık */
 .card-footer {
   display: grid;
+  grid-template-rows: minmax(34px, auto) minmax(15px, auto);
+  align-content: start;
   gap: 3px;
   width: 100%;
+  min-height: 66px;
   padding: 10px 10px 11px;
   border: 0;
   background:
@@ -352,6 +361,7 @@
 .card-title {
   display: -webkit-box;
   overflow: hidden;
+  min-height: 34px;
   color: #fff;
   font-size: 13px;
   font-weight: 750;
@@ -364,6 +374,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
+  min-height: 15px;
   color: #a8a8ae;
   font-size: 11px;
   font-weight: 650;

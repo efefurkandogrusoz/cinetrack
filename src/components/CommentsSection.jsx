@@ -98,7 +98,7 @@ const CommentsSection = ({ media }) => {
       setText('');
       setIsSpoiler(false);
       showMessage(result.status === 'pending'
-        ? 'Yorumunuz moderasyon kontrolüne takıldı. İnceleme sonrası yayınlanabilir.'
+        ? 'Yorumunuz moderasyon kurallarına takıldığı için admin onayına gönderildi.'
         : 'Yorum paylaşıldı.');
     } catch (submitError) {
       console.error('Comment could not be sent:', submitError);
@@ -178,7 +178,7 @@ const CommentsSection = ({ media }) => {
         isSpoiler: replyIsSpoiler,
       });
       showMessage(result.status === 'pending'
-        ? 'Yanıtınız moderasyon kontrolüne takıldı. İnceleme sonrası yayınlanabilir.'
+        ? 'Yanıtınız moderasyon kurallarına takıldığı için admin onayına gönderildi.'
         : 'Yanıt paylaşıldı.');
     } catch (replyError) {
       console.error('Reply could not be sent:', replyError);
@@ -275,7 +275,6 @@ const CommentsSection = ({ media }) => {
         <form className="comment-form" onSubmit={submitComment}>
           <textarea
             value={text}
-            minLength={10}
             maxLength={MAX_COMMENT_LENGTH}
             placeholder="Bu film/dizi hakkında yorumunu yaz..."
             onChange={event => setText(event.target.value)}

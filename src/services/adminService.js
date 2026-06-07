@@ -17,6 +17,11 @@ import {
 } from 'firebase/firestore';
 import { auth, db } from './firebase';
 import { isInactiveUserProfile } from '../utils/accountStatus';
+import {
+  getLocalModerationRules,
+  normalizeModerationRules,
+  saveLocalModerationRules,
+} from '../utils/moderationRules';
 
 const USERS_COLLECTION = 'users';
 const COMMENTS_COLLECTION = 'comments';
@@ -30,6 +35,8 @@ const ANNOUNCEMENTS_COLLECTION = 'announcements';
 const NOTIFICATIONS_COLLECTION = 'notifications';
 const BANNED_WORDS_COLLECTION = 'bannedWords';
 const HERO_BANNERS_COLLECTION = 'heroBanners';
+const MODERATION_RULES_COLLECTION = 'moderationRules';
+const MODERATION_RULES_DOC = 'comments';
 
 const getTimestampValue = (value) => {
   if (!value) return 0;
@@ -728,6 +735,34 @@ export const updateBannedWordActive = async (wordId, isActive) => (
     updatedAt: serverTimestamp(),
   })
 );
+
+export const subscribeModerationRules = (onRules, onError) => (
+  onSnapshot(
+    doc(db, MODERATION_RULES_COLLECTION, MODERATION_RULES_DOC),
+    (snapshot) => {
+      const rules = normalizeModerationRules(snapshot.exists() ? snapshot.data() : getLocalModerationRules());
+      saveLocalModerationRules(rules);
+      onRules(rules);
+    },
+    (error) => {
+      onError?.(error);
+      onRules(getLocalModerationRules());
+    },
+  )
+);
+
+export const saveModerationRules = async (rules) => {
+  const user = auth.currentUser;
+  if (!user) throw new Error('Moderasyon kurallarını kaydetmek için admin girişi gerekli.');
+
+  const normalized = saveLocalModerationRules(rules);
+
+  return setDoc(doc(db, MODERATION_RULES_COLLECTION, MODERATION_RULES_DOC), {
+    ...normalized,
+    updatedAt: serverTimestamp(),
+    updatedBy: user.uid,
+  }, { merge: true });
+};
 
 export const subscribeHeroBanners = (onBanners, onError) => (
   onSnapshot(

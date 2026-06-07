@@ -4,12 +4,8 @@ export const MIN_COMMENT_WORDS = 3;
 
 export const getCommentValidationMessage = (text) => {
   const cleanText = text.trim();
-  const wordCount = cleanText.split(/\s+/).filter(Boolean).length;
 
-  if (cleanText.length < MIN_COMMENT_LENGTH || wordCount < MIN_COMMENT_WORDS) {
-    return 'Yorum en az 10 karakter ve 3 kelime olmalı.';
-  }
-
+  if (!cleanText) return 'Yorum boş olamaz.';
   if (cleanText.length > MAX_COMMENT_LENGTH) return 'Yorum en fazla 500 karakter olabilir.';
   return '';
 };

@@ -13,6 +13,7 @@ export const NOTIFICATION_TYPES = {
   SYSTEM: 'system',
   ANNOUNCEMENT: 'announcement',
   ADMIN: 'admin',
+  MODERATION: 'moderation',
   WARNING: 'warning',
   FEATURE: 'feature',
   ACCOUNT: 'account',
@@ -23,7 +24,9 @@ export const NOTIFICATION_FILTERS = [
   { id: 'unread', label: 'Okunmamış' },
   { id: 'actions', label: 'İşlemler' },
   { id: 'recommendation', label: 'Öneriler' },
+  { id: 'library', label: 'Listem' },
   { id: 'weekly-summary', label: 'Özet' },
+  { id: 'moderation', label: 'Moderasyon' },
   { id: 'system', label: 'Sistem' },
   { id: 'announcement', label: 'Duyurular' },
 ];
@@ -36,6 +39,20 @@ const ACTION_TYPES = new Set([
   NOTIFICATION_TYPES.RATING,
   NOTIFICATION_TYPES.COMMENT,
   NOTIFICATION_TYPES.SHARE,
+]);
+
+const LIBRARY_TYPES = new Set([
+  NOTIFICATION_TYPES.FAVORITE,
+  NOTIFICATION_TYPES.WATCHLIST,
+  NOTIFICATION_TYPES.WATCHED,
+  NOTIFICATION_TYPES.DELETE,
+  NOTIFICATION_TYPES.RATING,
+]);
+
+const MODERATION_TYPES = new Set([
+  NOTIFICATION_TYPES.MODERATION,
+  NOTIFICATION_TYPES.WARNING,
+  NOTIFICATION_TYPES.ACCOUNT,
 ]);
 
 export const createNotificationId = () => `ntf_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
@@ -72,10 +89,12 @@ export const matchesNotificationFilter = (notification, filterId) => {
     return notification.type === NOTIFICATION_TYPES.RECOMMENDATION
       || notification.type === NOTIFICATION_TYPES.COMPARE;
   }
+  if (filterId === 'library') return LIBRARY_TYPES.has(notification.type);
   if (filterId === 'weekly-summary') {
     return notification.type === NOTIFICATION_TYPES.WEEKLY_SUMMARY
       || notification.type === NOTIFICATION_TYPES.WATCH_TIME;
   }
+  if (filterId === 'moderation') return MODERATION_TYPES.has(notification.type);
   if (filterId === 'system') return notification.type === NOTIFICATION_TYPES.SYSTEM;
   if (filterId === 'announcement') {
     return notification.type === NOTIFICATION_TYPES.ANNOUNCEMENT

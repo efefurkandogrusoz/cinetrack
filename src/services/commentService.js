@@ -5,6 +5,7 @@ import {
   collection,
   collectionGroup,
   doc,
+  getDoc,
   getDocs,
   onSnapshot,
   query,
@@ -14,12 +15,17 @@ import {
 } from 'firebase/firestore';
 import { auth, db } from './firebase';
 import { getMediaType } from '../utils/media';
+import {
+  getLocalModerationRules,
+  normalizeModerationRules,
+  saveLocalModerationRules,
+} from '../utils/moderationRules';
 
 const COMMENTS_COLLECTION = 'comments';
 const REPLIES_COLLECTION = 'replies';
 const BANNED_WORDS_COLLECTION = 'bannedWords';
-const MIN_COMMENT_LENGTH = 10;
-const MIN_COMMENT_WORDS = 3;
+const MODERATION_RULES_COLLECTION = 'moderationRules';
+const MODERATION_RULES_DOC = 'comments';
 const MAX_COMMENT_LENGTH = 500;
 const RECENT_COMMENT_WINDOW_MS = 2 * 60 * 1000;
 const DUPLICATE_COMMENT_WINDOW_MS = 10 * 60 * 1000;
@@ -47,12 +53,11 @@ const getCurrentUsername = (userProfile, user) => (
   'CineTrack kullanıcısı'
 );
 
-const validateCommentText = (text) => {
+const normalizeCommentText = (text) => {
   const cleanText = text.trim();
-  const wordCount = cleanText.split(/\s+/).filter(Boolean).length;
 
-  if (cleanText.length < MIN_COMMENT_LENGTH || wordCount < MIN_COMMENT_WORDS) {
-    throw new Error('Yorum en az 10 karakter ve 3 kelime olmalı.');
+  if (!cleanText) {
+    throw new Error('Yorum boş olamaz.');
   }
   if (cleanText.length > MAX_COMMENT_LENGTH) {
     throw new Error('Yorum en fazla 500 karakter olabilir.');
@@ -96,12 +101,38 @@ const getUppercaseRatio = (text) => {
   return uppercaseCount / letters.length;
 };
 
-const evaluateModeration = async ({ text, userId }) => {
+const hasLink = (text) => (
+  /https?:\/\/|www\.|[a-z0-9-]+\.[a-z]{2,}(\/|\s|$)/iu.test(text)
+);
+
+const getEmojiRatio = (text) => {
+  const compact = [...text.replace(/\s/g, '')];
+  if (compact.length < 4) return 0;
+
+  const emojiCount = compact.filter(char => /\p{Extended_Pictographic}/u.test(char)).length;
+  return emojiCount / compact.length;
+};
+
+const loadModerationRules = async () => {
+  try {
+    const snapshot = await getDoc(doc(db, MODERATION_RULES_COLLECTION, MODERATION_RULES_DOC));
+    if (snapshot.exists()) {
+      return saveLocalModerationRules(snapshot.data());
+    }
+  } catch {
+    return getLocalModerationRules();
+  }
+
+  return getLocalModerationRules();
+};
+
+const evaluateModeration = async ({ text, userId, rules }) => {
   const [bannedWords, recentComments] = await Promise.all([
-    loadActiveBannedWords(),
+    rules.bannedWordFilterEnabled ? loadActiveBannedWords() : Promise.resolve([]),
     getUserRecentComments(userId),
   ]);
   const cleanComparable = normalizeTextForCompare(text);
+  const wordCount = cleanComparable.split(/\s+/).filter(Boolean).length;
   const matchedWord = bannedWords.find((word) => {
     const pattern = new RegExp(`(^|\\s|[^\\p{L}\\p{N}])${escapeRegExp(word)}($|\\s|[^\\p{L}\\p{N}])`, 'iu');
     return pattern.test(cleanComparable);
@@ -111,6 +142,23 @@ const evaluateModeration = async ({ text, userId }) => {
     return {
       status: 'pending',
       reason: `Yasaklı kelime tespit edildi: ${matchedWord}`,
+    };
+  }
+
+  if (!rules.allowShortComments && (
+    text.length < rules.minimumCommentLength ||
+    wordCount < rules.minimumWordCount
+  )) {
+    return {
+      status: 'pending',
+      reason: `Kısa yorum: en az ${rules.minimumCommentLength} karakter ve ${rules.minimumWordCount} kelime bekleniyor`,
+    };
+  }
+
+  if (rules.linkCommentsPending && hasLink(text)) {
+    return {
+      status: 'pending',
+      reason: 'Link içeren yorum',
     };
   }
 
@@ -132,10 +180,24 @@ const evaluateModeration = async ({ text, userId }) => {
     throw new Error('Aynı yorumu kısa süre içinde tekrar gönderemezsin.');
   }
 
-  if (getUppercaseRatio(text) > 0.72) {
+  if (rules.uppercaseRuleEnabled && getUppercaseRatio(text) > rules.uppercaseRatioLimit) {
     return {
       status: 'pending',
       reason: 'Çok fazla büyük harf kullanımı',
+    };
+  }
+
+  if (rules.emojiHeavyPending && getEmojiRatio(text) > 0.45) {
+    return {
+      status: 'pending',
+      reason: 'Emoji ağırlıklı yorum',
+    };
+  }
+
+  if (!rules.publishNewCommentsImmediately) {
+    return {
+      status: 'pending',
+      reason: 'Yeni yorumlar admin onayına gönderiliyor',
     };
   }
 
@@ -150,13 +212,13 @@ const normalizeSpoilerValue = (value) => value === true;
 const normalizeCommentUpdatePayload = (payload) => {
   if (typeof payload === 'string') {
     return {
-      text: validateCommentText(payload),
+      text: normalizeCommentText(payload),
       isSpoiler: false,
     };
   }
 
   return {
-    text: validateCommentText(payload?.text || ''),
+    text: normalizeCommentText(payload?.text || ''),
     isSpoiler: normalizeSpoilerValue(payload?.isSpoiler),
   };
 };
@@ -345,9 +407,10 @@ export const createComment = async ({ media, userProfile, text, isSpoiler = fals
   const user = auth.currentUser;
   if (!user) throw new Error('Yorum yapmak için giriş yapmalısın.');
 
-  const cleanText = validateCommentText(text);
+  const rules = normalizeModerationRules(await loadModerationRules());
+  const cleanText = normalizeCommentText(text);
   const username = getCurrentUsername(userProfile, user);
-  const moderation = await evaluateModeration({ text: cleanText, userId: user.uid });
+  const moderation = await evaluateModeration({ text: cleanText, userId: user.uid, rules });
 
   const ref = await addDoc(collection(db, COMMENTS_COLLECTION), {
     mediaId: normalizeMediaId(media.id),
@@ -376,9 +439,10 @@ export const createReply = async ({ comment, userProfile, text, isSpoiler = fals
   if (!user) throw new Error('Yanıt yazmak için giriş yapmalısın.');
   if (comment?.deleted) throw new Error('Silinen bir yoruma yanıt yazılamaz.');
 
-  const cleanText = validateCommentText(text);
+  const rules = normalizeModerationRules(await loadModerationRules());
+  const cleanText = normalizeCommentText(text);
   const username = getCurrentUsername(userProfile, user);
-  const moderation = await evaluateModeration({ text: cleanText, userId: user.uid });
+  const moderation = await evaluateModeration({ text: cleanText, userId: user.uid, rules });
 
   const ref = await addDoc(
     collection(db, COMMENTS_COLLECTION, comment.id, REPLIES_COLLECTION),

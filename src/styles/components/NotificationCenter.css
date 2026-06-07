@@ -207,6 +207,26 @@ body.notification-panel-scroll-lock {
     rgba(255, 255, 255, 0.03);
 }
 
+.notification-item.tone-comment,
+.notification-page-card.tone-comment {
+  border-color: rgba(56, 189, 248, 0.26);
+}
+
+.notification-item.tone-library,
+.notification-page-card.tone-library {
+  border-color: rgba(45, 207, 134, 0.24);
+}
+
+.notification-item.tone-moderation,
+.notification-page-card.tone-moderation {
+  border-color: rgba(255, 191, 71, 0.28);
+}
+
+.notification-item.tone-system,
+.notification-page-card.tone-system {
+  border-color: rgba(148, 163, 184, 0.24);
+}
+
 .notification-item-main {
   display: grid;
   gap: 4px;
@@ -359,5 +379,196 @@ body.notification-panel-scroll-lock {
   .notification-item-delete {
     width: 30px;
     margin-right: 6px;
+  }
+}
+
+.notifications-page-shell {
+  display: grid;
+  gap: 16px;
+}
+
+.notifications-summary-panel {
+  display: grid;
+  grid-template-columns: minmax(140px, 0.2fr) minmax(140px, 0.2fr) minmax(260px, 1fr);
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 8px;
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.065), rgba(var(--primary-rgb), 0.055)),
+    rgba(12, 12, 14, 0.76);
+}
+
+.notifications-summary-panel > div {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.notifications-summary-panel span {
+  color: #9c9ca3;
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.notifications-summary-panel strong {
+  color: #fff;
+  font-size: 30px;
+  line-height: 1;
+}
+
+.notifications-page-actions {
+  display: flex !important;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.notifications-page-actions button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 0 13px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.055);
+  color: #fff;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.notifications-page-actions button:hover:not(:disabled) {
+  border-color: rgba(var(--primary-rgb), 0.56);
+  background: rgba(var(--primary-rgb), 0.15);
+}
+
+.notifications-page-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.52;
+}
+
+.notifications-page-filters {
+  padding: 0;
+}
+
+.notifications-page-list {
+  display: grid;
+  gap: 10px;
+}
+
+.notification-page-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: stretch;
+  gap: 8px;
+  min-width: 0;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 8px;
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.055), rgba(var(--primary-rgb), 0.04)),
+    rgba(10, 10, 12, 0.72);
+}
+
+.notification-page-card.read {
+  opacity: 0.64;
+}
+
+.notification-page-card-main {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  padding: 14px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.notification-type-icon {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 8px;
+  background: rgba(var(--primary-rgb), 0.12);
+  color: var(--primary-color);
+}
+
+.notification-page-card-copy {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.notification-page-card-copy small {
+  color: var(--primary-color);
+  font-size: 11px;
+  font-weight: 950;
+}
+
+.notification-page-card-copy strong {
+  overflow-wrap: anywhere;
+  color: #fff;
+  font-size: 15px;
+}
+
+.notification-page-card-copy span {
+  overflow-wrap: anywhere;
+  color: #b9b9bf;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.notification-page-card-copy time {
+  color: #7f7f86;
+  font-size: 11px;
+}
+
+.notifications-page-empty {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  min-height: 180px;
+  padding: 28px;
+  border: 1px dashed rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.22);
+}
+
+.notifications-page-empty svg {
+  color: var(--primary-color);
+}
+
+@media (max-width: 760px) {
+  .notifications-summary-panel {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .notifications-page-actions {
+    grid-column: 1 / -1;
+    justify-content: stretch;
+  }
+
+  .notifications-page-actions button {
+    flex: 1 1 160px;
+  }
+}
+
+@media (max-width: 520px) {
+  .notification-page-card-main {
+    grid-template-columns: 34px minmax(0, 1fr);
+    padding: 12px;
+  }
+
+  .notification-type-icon {
+    width: 34px;
+    height: 34px;
   }
 }

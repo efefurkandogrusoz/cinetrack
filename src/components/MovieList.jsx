@@ -35,7 +35,7 @@ const MovieList = ({ movies = null, listId }) => {
       const matchesGenre = activeGenre === 'all' || movie.genres?.includes(activeGenre);
       const matchesMediaType = selectedMediaType === 'all' || getMediaType(movie) === selectedMediaType;
       const matchesStatus = selectedStatus === 'all' || getWatchStatus(movie) === selectedStatus;
-      const matchesFavorite = !favoriteOnly || movie.favorite;
+      const matchesFavorite = !favoriteOnly || movie.favorite || movie.isFavorite;
 
       return matchesGenre && matchesMediaType && matchesStatus && matchesFavorite;
     });
@@ -134,7 +134,7 @@ const MovieList = ({ movies = null, listId }) => {
         <span className="stats-item">Film <strong>{moviesToDisplay.filter(movie => getMediaType(movie) === 'movie').length}</strong></span>
         <span className="stats-item">Dizi <strong>{moviesToDisplay.filter(movie => getMediaType(movie) === 'tv').length}</strong></span>
         <span className="stats-item">İzlendi <strong>{moviesToDisplay.filter(movie => movie.watched || getWatchStatus(movie) === 'completed').length}</strong></span>
-        <span className="stats-item">Favori <strong>{moviesToDisplay.filter(movie => movie.favorite).length}</strong></span>
+        <span className="stats-item">Favori <strong>{moviesToDisplay.filter(movie => movie.favorite || movie.isFavorite).length}</strong></span>
         <span className="stats-item">Beğendim <strong>{moviesToDisplay.filter(movie => movie.reaction === 'liked').length}</strong></span>
       </div>
 

@@ -8,12 +8,12 @@ import './styles/global.css';
 const AuthScreen = lazy(() => import('./components/AuthScreen'));
 const Home = lazy(() => import('./pages/Home'));
 const Movies = lazy(() => import('./pages/Movies'));
-const Watched = lazy(() => import('./pages/Watched'));
-const Watchlist = lazy(() => import('./pages/Watchlist'));
-const Favorites = lazy(() => import('./pages/Favorites'));
+const LibraryPage = lazy(() => import('./pages/LibraryPage'));
+const MyList = lazy(() => import('./pages/MyList'));
 const AccountSettings = lazy(() => import('./pages/AccountSettings'));
 const Settings = lazy(() => import('./pages/Settings'));
 const Statistics = lazy(() => import('./pages/Statistics'));
+const Notifications = lazy(() => import('./pages/Notifications'));
 const UserProfile = lazy(() => import('./pages/UserProfile'));
 const AdminPanel = lazy(() => import('./pages/AdminPanel'));
 const ActorDetails = lazy(() => import('./pages/ActorDetails'));
@@ -58,12 +58,18 @@ const AppRoutes = () => {
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/movies" element={<Movies />} />
-          <Route path="/watched" element={<Watched />} />
-          <Route path="/watchlist" element={<Watchlist />} />
-          <Route path="/favorites" element={<Favorites />} />
+          <Route path="/listem" element={<MyList />} />
+          <Route path="/library/all" element={<LibraryPage view="all" />} />
+          <Route path="/library/watched" element={<LibraryPage view="watched" />} />
+          <Route path="/library/watchlist" element={<LibraryPage view="watchlist" />} />
+          <Route path="/library/favorites" element={<LibraryPage view="favorites" />} />
+          <Route path="/watched" element={<LibraryPage view="watched" />} />
+          <Route path="/watchlist" element={<LibraryPage view="watchlist" />} />
+          <Route path="/favorites" element={<LibraryPage view="favorites" />} />
           <Route path="/statistics" element={<Statistics />} />
           <Route path="/istatistikler" element={<Statistics />} />
           <Route path="/account-settings" element={<AccountSettings />} />
+          <Route path="/notifications" element={<Notifications />} />
           <Route path="/user/:userId" element={<UserProfile />} />
           <Route path="/actor/:actorId" element={<ActorDetails />} />
           <Route path="/oyuncu/:actorId" element={<ActorDetails />} />

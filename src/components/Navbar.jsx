@@ -2,10 +2,9 @@ import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
   BarChart3,
-  Bookmark,
-  CheckCircle2,
+  Bell,
   Clapperboard,
-  LayoutGrid,
+  Home,
   List,
   LogOut,
   Settings,
@@ -45,7 +44,7 @@ const DrawerNavItem = ({ icon: Icon, label, active = false, onClick, className =
 );
 
 const Navbar = () => {
-  const { filter, setFilter, movies, user, userProfile } = useMovies();
+  const { setFilter, movies, user, userProfile } = useMovies();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const navigate = useNavigate();
@@ -57,22 +56,6 @@ const Navbar = () => {
     favorites: movies.filter(movie => movie.favorite || movie.isFavorite).length,
     total: movies.length,
   }), [movies]);
-
-  const handleFilterChange = (newFilter) => {
-    setFilter(newFilter);
-    setDrawerOpen(false);
-
-    switch (newFilter) {
-      case 'watched':
-        navigate('/watched');
-        break;
-      case 'watchlist':
-        navigate('/watchlist');
-        break;
-      default:
-        navigate('/');
-    }
-  };
 
   const closeDrawer = () => {
     setDrawerOpen(false);
@@ -111,25 +94,10 @@ const Navbar = () => {
     navigate('/admin');
   };
 
-  const scrollToMyList = () => {
-    window.requestAnimationFrame(() => {
-      document.getElementById('my-list')?.scrollIntoView({
-        behavior: 'smooth',
-        block: 'start',
-      });
-    });
-  };
-
   const goToMyList = () => {
     setFilter('all');
     closeDrawer();
-
-    if (location.pathname === '/') {
-      scrollToMyList();
-      return;
-    }
-
-    navigate('/', { state: { scrollToMyList: true } });
+    navigate('/listem');
   };
 
   const goToHomeTop = () => {
@@ -142,6 +110,24 @@ const Navbar = () => {
     }
 
     navigate('/', { state: { scrollToTop: true } });
+  };
+
+  const goToNotifications = () => {
+    closeDrawer();
+    navigate('/notifications');
+  };
+
+  const goToLibraryView = (view) => {
+    const routes = {
+      all: '/library/all',
+      watched: '/library/watched',
+      watchlist: '/library/watchlist',
+      favorites: '/library/favorites',
+    };
+
+    setFilter(view === 'all' ? 'all' : view);
+    closeDrawer();
+    navigate(routes[view] || routes.all);
   };
 
   const signOut = async () => {
@@ -157,24 +143,25 @@ const Navbar = () => {
   const isAdmin = isAdminProfile(userProfile);
   const isAccountSettings = location.pathname === '/account-settings';
   const isSettings = location.pathname === '/settings';
-  const isWatched = location.pathname === '/watched';
-  const isWatchlist = location.pathname === '/watchlist';
+  const isHome = location.pathname === '/';
+  const isMyList = location.pathname === '/listem';
+  const isNotifications = location.pathname === '/notifications';
+  const isLibraryPage = location.pathname.startsWith('/library/')
+    || location.pathname === '/watched'
+    || location.pathname === '/watchlist'
+    || location.pathname === '/favorites';
   const isMovies = location.pathname === '/movies';
   const isStatistics = location.pathname === '/statistics' || location.pathname === '/istatistikler';
   const isUserProfile = location.pathname.startsWith('/user/');
   const isAdminPanel = location.pathname.startsWith('/admin');
-  const hideQuickNav = isAccountSettings || isSettings || isWatched || isWatchlist || isStatistics || isUserProfile || isAdminPanel;
-  const hideNavbarSearch = hideQuickNav || isMovies;
+  const hideNavbarSearch = isAccountSettings || isSettings || isLibraryPage || isMyList || isNotifications || isStatistics || isUserProfile || isAdminPanel || isMovies;
   const logoMarkUrl = `${import.meta.env.BASE_URL}cinetrack-logo-mark.png`;
-  const isAllFilterActive = filter === 'all' && !isAccountSettings && !isSettings && !isMovies && !isStatistics;
-  const isWatchedFilterActive = filter === 'watched' && !isAccountSettings && !isSettings && !isStatistics;
-  const isWatchlistFilterActive = filter === 'watchlist' && !isAccountSettings && !isSettings && !isStatistics;
 
   const metricCards = [
-    { value: stats.total, label: 'Tümü' },
-    { value: stats.watched, label: 'İzlenen' },
-    { value: stats.watchlist, label: 'İzlenecek' },
-    { value: stats.favorites, label: 'Favori' },
+    { value: stats.total, label: 'Tümü', view: 'all' },
+    { value: stats.watched, label: 'İzlenen', view: 'watched' },
+    { value: stats.watchlist, label: 'İzlenecek', view: 'watchlist' },
+    { value: stats.favorites, label: 'Favori', view: 'favorites' },
   ];
 
   useEffect(() => {
@@ -300,10 +287,15 @@ const Navbar = () => {
 
           <div className="drawer-metrics" aria-label="Liste özeti">
             {metricCards.map(card => (
-              <article className="drawer-metric-card" key={card.label}>
+              <button
+                className="drawer-metric-card"
+                key={card.label}
+                type="button"
+                onClick={() => goToLibraryView(card.view)}
+              >
                 <strong>{card.value}</strong>
                 <span>{card.label}</span>
-              </article>
+              </button>
             ))}
           </div>
 
@@ -324,26 +316,17 @@ const Navbar = () => {
             </DrawerNavGroup>
 
             <DrawerNavGroup title="Listeler">
-              {!hideQuickNav && (
-                <DrawerNavItem icon={List} label="Listem" onClick={goToMyList} />
-              )}
               <DrawerNavItem
-                icon={LayoutGrid}
-                label="Tümü"
-                active={isAllFilterActive}
-                onClick={() => handleFilterChange('all')}
+                icon={List}
+                label="Listem"
+                active={isMyList}
+                onClick={goToMyList}
               />
               <DrawerNavItem
-                icon={CheckCircle2}
-                label="İzlenenler"
-                active={isWatchedFilterActive}
-                onClick={() => handleFilterChange('watched')}
-              />
-              <DrawerNavItem
-                icon={Bookmark}
-                label="İzlenecekler"
-                active={isWatchlistFilterActive}
-                onClick={() => handleFilterChange('watchlist')}
+                icon={Home}
+                label="Anasayfa"
+                active={isHome}
+                onClick={goToHomeTop}
               />
             </DrawerNavGroup>
 
@@ -365,6 +348,12 @@ const Navbar = () => {
                 label="Ayarlar"
                 active={isSettings}
                 onClick={goToSettings}
+              />
+              <DrawerNavItem
+                icon={Bell}
+                label="Bildirimler"
+                active={isNotifications}
+                onClick={goToNotifications}
               />
             </DrawerNavGroup>
 

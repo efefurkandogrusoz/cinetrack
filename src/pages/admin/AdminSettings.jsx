@@ -20,6 +20,7 @@ const AdminSettings = () => (
           <span>announcements</span>
           <span>notifications</span>
           <span>bannedWords</span>
+          <span>moderationRules</span>
           <span>heroBanners</span>
         </div>
       </section>

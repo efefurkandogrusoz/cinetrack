@@ -13,6 +13,62 @@
   padding-bottom: 24px;
 }
 
+.home-summary-panel {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: -18px;
+}
+
+.home-summary-card {
+  display: grid;
+  align-content: center;
+  gap: 5px;
+  min-height: 112px;
+  padding: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 8px;
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.065), rgba(var(--primary-rgb), 0.07)),
+    rgba(12, 12, 14, 0.76);
+  color: #fff;
+  cursor: pointer;
+  text-align: left;
+  box-shadow: 0 16px 42px rgba(0, 0, 0, 0.24);
+  transition:
+    border-color 0.2s ease,
+    background 0.2s ease,
+    transform 0.2s ease;
+}
+
+.home-summary-card:hover,
+.home-summary-card:focus-visible {
+  border-color: rgba(var(--primary-rgb), 0.45);
+  background:
+    linear-gradient(145deg, rgba(var(--primary-rgb), 0.16), rgba(255, 255, 255, 0.07)),
+    rgba(16, 16, 18, 0.86);
+  transform: translateY(-2px);
+}
+
+.home-summary-card strong {
+  color: #fff;
+  font-size: 32px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.home-summary-card span {
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 14px;
+  font-weight: 850;
+}
+
+.home-summary-card small {
+  color: rgba(255, 255, 255, 0.54);
+  font-size: 12px;
+  font-weight: 650;
+}
+
 /* ——— Sinematik Hero ——— */
 .home-hero.cinematic-hero.page-header.hero-header {
   position: relative;
@@ -361,6 +417,11 @@
 }
 
 @media (max-width: 1024px) {
+  .home-summary-panel {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin-top: -24px;
+  }
+
   .hero-inner {
     grid-template-columns: 1fr;
     padding: 36px 32px;
@@ -447,6 +508,24 @@
   .home-layout {
     gap: 20px;
     width: min(100%, calc(100vw - 20px));
+  }
+
+  .home-summary-panel {
+    gap: 10px;
+    margin-top: -10px;
+  }
+
+  .home-summary-card {
+    min-height: 92px;
+    padding: 14px;
+  }
+
+  .home-summary-card strong {
+    font-size: 26px;
+  }
+
+  .home-summary-card small {
+    display: none;
   }
 
   .home-hero.cinematic-hero.page-header.hero-header {

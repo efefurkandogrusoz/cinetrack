@@ -302,6 +302,12 @@ const Navbar = () => {
           <nav className="drawer-nav" aria-label="Menü bağlantıları">
             <DrawerNavGroup title="Ana Menü">
               <DrawerNavItem
+                icon={Home}
+                label="Anasayfa"
+                active={isHome}
+                onClick={goToHomeTop}
+              />
+              <DrawerNavItem
                 icon={Clapperboard}
                 label="Film & Dizi"
                 active={isMovies}
@@ -322,12 +328,6 @@ const Navbar = () => {
                 active={isMyList}
                 onClick={goToMyList}
               />
-              <DrawerNavItem
-                icon={Home}
-                label="Anasayfa"
-                active={isHome}
-                onClick={goToHomeTop}
-              />
             </DrawerNavGroup>
 
             <DrawerNavGroup title="Hesap">
@@ -344,16 +344,16 @@ const Navbar = () => {
                 onClick={goToAccountSettings}
               />
               <DrawerNavItem
-                icon={Settings}
-                label="Ayarlar"
-                active={isSettings}
-                onClick={goToSettings}
-              />
-              <DrawerNavItem
                 icon={Bell}
                 label="Bildirimler"
                 active={isNotifications}
                 onClick={goToNotifications}
+              />
+              <DrawerNavItem
+                icon={Settings}
+                label="Ayarlar"
+                active={isSettings}
+                onClick={goToSettings}
               />
             </DrawerNavGroup>
 

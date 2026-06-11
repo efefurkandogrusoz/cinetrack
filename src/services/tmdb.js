@@ -6,10 +6,12 @@ const API_BASE_URL = 'https://api.themoviedb.org/3';
 const POSTER_BASE_URL = 'https://image.tmdb.org/t/p/w500';
 const BACKDROP_BASE_URL = 'https://image.tmdb.org/t/p/w1280';
 const LOGO_BASE_URL = 'https://image.tmdb.org/t/p/w92';
+const WATCH_PROVIDER_LOGO_BASE_URL = 'https://image.tmdb.org/t/p/original';
 const PROFILE_BASE_URL = 'https://image.tmdb.org/t/p/w185';
 const PROFILE_LARGE_BASE_URL = 'https://image.tmdb.org/t/p/w500';
 export const LANGUAGE = 'tr-TR';
 export const FALLBACK_LANGUAGE = 'en-US';
+export const NO_OVERVIEW_MESSAGE = 'Bu içerik için açıklama bulunamadı.';
 
 export const MOVIE_GENRE_MAP = {
   12: 'Macera',
@@ -82,8 +84,8 @@ const fetchTmdb = async (path, params = {}) => {
 };
 
 const withLanguage = (params = {}, language = LANGUAGE) => ({
-  language,
   ...params,
+  language,
 });
 
 const fetchLocalizedTmdb = async (path, params = {}) => {
@@ -118,11 +120,48 @@ const isExcludedMedia = (media, excludedValues = []) => {
 
 const hasText = (value) => typeof value === 'string' && value.trim().length > 0;
 
-const getNoOverviewMessage = (mediaType) => (
-  mediaType === 'tv'
-    ? 'Bu dizi için açıklama bulunamadı.'
-    : 'Bu film için açıklama bulunamadı.'
-);
+const getNoOverviewMessage = () => NO_OVERVIEW_MESSAGE;
+
+const getTranslationOverview = (item, languageCode = 'tr', countryCode = 'TR') => {
+  const translations = item?.translations?.translations || [];
+  const exactTranslation = translations.find(translation => (
+    translation.iso_639_1 === languageCode && translation.iso_3166_1 === countryCode
+  ));
+  const languageTranslation = translations.find(translation => translation.iso_639_1 === languageCode);
+  const translationData = exactTranslation?.data || languageTranslation?.data || {};
+
+  return hasText(translationData.overview) ? translationData.overview.trim() : '';
+};
+
+const getBestOverview = (item, fallbackItem = null, mediaType = 'movie') => {
+  const turkishOverview = getTranslationOverview(item) || getTranslationOverview(fallbackItem);
+
+  if (turkishOverview) {
+    return {
+      overview: turkishOverview,
+      overviewLanguage: 'tr',
+    };
+  }
+
+  if (hasText(item?.overview)) {
+    return {
+      overview: item.overview.trim(),
+      overviewLanguage: item.original_language === 'tr' ? 'tr' : LANGUAGE,
+    };
+  }
+
+  if (hasText(fallbackItem?.overview)) {
+    return {
+      overview: fallbackItem.overview.trim(),
+      overviewLanguage: 'en',
+    };
+  }
+
+  return {
+    overview: getNoOverviewMessage(mediaType),
+    overviewLanguage: 'none',
+  };
+};
 
 const getYear = (dateValue) => {
   if (!dateValue) return 'N/A';
@@ -143,16 +182,13 @@ const mergeLocalizedMediaItem = (item, fallbackItem = null, fallbackMediaType = 
 
   const baseItem = item || fallbackItem;
   const mediaType = getMediaTypeFromItem(baseItem, fallbackMediaType);
-  const overview = hasText(item?.overview)
-    ? item.overview.trim()
-    : hasText(fallbackItem?.overview)
-      ? fallbackItem.overview.trim()
-      : getNoOverviewMessage(mediaType);
+  const { overview, overviewLanguage } = getBestOverview(item, fallbackItem, mediaType);
 
   return {
     ...fallbackItem,
     ...item,
     overview,
+    overviewLanguage,
   };
 };
 
@@ -344,6 +380,7 @@ const formatMedia = (item, fallbackMediaType = 'movie') => {
     first_air_date: mediaType === 'tv' ? releaseDate || '' : '',
     firstAirDate: mediaType === 'tv' ? releaseDate || '' : '',
     overview,
+    overviewLanguage: item.overviewLanguage || '',
     rating: item.vote_average || 0,
     voteAverage: item.vote_average || 0,
     poster: item.poster_path ? `${POSTER_BASE_URL}${item.poster_path}` : null,
@@ -409,6 +446,47 @@ const formatWatchProviders = (providerData = {}) => {
   );
 };
 
+const watchProviderCategories = [
+  { key: 'flatrate', label: 'Abonelikle İzle' },
+  { key: 'rent', label: 'Kirala' },
+  { key: 'buy', label: 'Satın Al' },
+  { key: 'free', label: 'Ücretsiz / Reklamlı' },
+  { key: 'ads', label: 'Reklamlı İzle' },
+];
+
+const formatWatchProviderLogo = (logoPath) => {
+  if (!logoPath) return null;
+  return String(logoPath).startsWith('http')
+    ? logoPath
+    : `${WATCH_PROVIDER_LOGO_BASE_URL}${logoPath}`;
+};
+
+const formatWatchProviderSections = (countryProviders = null, region = 'TR') => {
+  const watchLink = countryProviders?.link || '';
+
+  return {
+    region,
+    regionLabel: region === 'TR' ? 'Türkiye' : region,
+    link: watchLink,
+    sections: watchProviderCategories
+      .map(category => ({
+        ...category,
+        providers: uniqueBy(
+          (countryProviders?.[category.key] || []).map(provider => ({
+            providerId: provider.provider_id,
+            providerName: provider.provider_name || 'Platform',
+            type: category.key,
+            typeLabel: category.label,
+            logoPath: provider.logo_path || null,
+            logo: formatWatchProviderLogo(provider.logo_path),
+          })),
+          provider => provider.providerId || provider.providerName,
+        ),
+      }))
+      .filter(section => section.providers.length > 0),
+  };
+};
+
 const formatCrewSummary = (credits = {}, mediaType = 'movie', createdBy = []) => {
   const crew = credits?.crew || [];
   const directors = crew
@@ -430,12 +508,17 @@ const formatCrewSummary = (credits = {}, mediaType = 'movie', createdBy = []) =>
   };
 };
 
-const formatRelatedMedia = (localizedData = {}, cleanedType = 'movie') => {
-  const recommendations = localizedData.recommendations?.results || [];
-  const similar = localizedData.similar?.results || [];
+const formatRelatedMedia = (localizedData = {}, fallbackData = {}, cleanedType = 'movie') => {
+  const recommendations = localizedData?.recommendations?.results || [];
+  const similar = localizedData?.similar?.results || [];
+  const fallbackRecommendations = fallbackData?.recommendations?.results || [];
+  const fallbackSimilar = fallbackData?.similar?.results || [];
 
   return uniqueBy(
-    formatMediaList([...recommendations, ...similar], cleanedType, { requirePoster: false }),
+    formatMediaList([
+      ...mergeLocalizedResults(recommendations, fallbackRecommendations, cleanedType),
+      ...mergeLocalizedResults(similar, fallbackSimilar, cleanedType),
+    ], cleanedType, { requirePoster: false }),
     item => `${item.mediaType}:${item.id}`,
   ).slice(0, 10);
 };
@@ -520,15 +603,31 @@ export const searchMedia = async (query, mediaType = 'movie') => {
 export const searchMovies = (query) => searchMedia(query, 'movie');
 export const searchTvShows = (query) => searchMedia(query, 'tv');
 
-export const getMovieDetails = async (movieId) => {
+export const getMediaDetails = async (mediaId, mediaType = 'movie') => {
   try {
-    const { data, fallbackData } = await fetchLocalizedTmdb(`/movie/${movieId}`);
-    const localizedData = mergeLocalizedMediaItem(data, fallbackData, 'movie');
-    return localizedData ? formatMedia(localizedData, 'movie') : null;
+    const cleanedType = mediaType === 'tv' ? 'tv' : 'movie';
+    const { data, fallbackData } = await fetchLocalizedTmdb(`/${cleanedType}/${mediaId}`, {
+      append_to_response: 'translations',
+    });
+    const localizedData = mergeLocalizedMediaItem(data, fallbackData, cleanedType);
+    return localizedData ? formatMedia(localizedData, cleanedType) : null;
   } catch (error) {
-    console.error('Error fetching movie details:', error);
+    console.error('Error fetching media details:', error);
     return null;
   }
+};
+
+export const getMovieDetails = (movieId) => getMediaDetails(movieId, 'movie');
+export const getTvShowDetails = (showId) => getMediaDetails(showId, 'tv');
+
+export const getMediaWatchProviders = async (mediaId, mediaType = 'movie', region = 'TR') => {
+  if (!mediaId) return formatWatchProviderSections(null, region);
+
+  const cleanedType = mediaType === 'tv' ? 'tv' : 'movie';
+  const data = await fetchTmdb(`/${cleanedType}/${mediaId}/watch/providers`);
+  const countryProviders = data?.results?.[region] || null;
+
+  return formatWatchProviderSections(countryProviders, region);
 };
 
 export const getMediaFullDetails = async (mediaId, mediaType = 'movie') => {
@@ -536,7 +635,7 @@ export const getMediaFullDetails = async (mediaId, mediaType = 'movie') => {
     const cleanedType = mediaType === 'tv' ? 'tv' : 'movie';
     const [{ data, fallbackData }, trailerKey] = await Promise.all([
       fetchLocalizedTmdb(`/${cleanedType}/${mediaId}`, {
-        append_to_response: 'credits,watch/providers,recommendations,similar',
+        append_to_response: 'credits,watch/providers,recommendations,similar,translations',
       }),
       getLocalizedTrailerKey(mediaId, cleanedType),
     ]);
@@ -556,7 +655,7 @@ export const getMediaFullDetails = async (mediaId, mediaType = 'movie') => {
       episodeRuntime: cleanedType === 'tv' ? localizedData.episode_run_time?.[0] || null : null,
       trailerKey,
       watchProviders: formatWatchProviders(localizedData['watch/providers']),
-      similarContent: formatRelatedMedia(localizedData, cleanedType),
+      similarContent: formatRelatedMedia(localizedData, fallbackData, cleanedType),
       ...crewSummary,
       cast: (localizedData.credits?.cast || []).slice(0, 12).map(actor => ({
         id: actor.id,
@@ -903,7 +1002,10 @@ export default {
   searchMedia,
   searchMovies,
   searchTvShows,
+  getMediaDetails,
   getMovieDetails,
+  getTvShowDetails,
+  getMediaWatchProviders,
   getMovieFullDetails,
   getTvShowFullDetails,
   getMediaFullDetails,

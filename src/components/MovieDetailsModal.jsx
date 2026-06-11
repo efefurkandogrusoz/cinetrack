@@ -23,7 +23,8 @@ import {
 } from 'lucide-react';
 import CommentsSection from './CommentsSection';
 import ShareActions from './ShareActions';
-import { getMediaFullDetails, getSmartTrailerVideo } from '../services/tmdb';
+import WhereToWatch from './WhereToWatch';
+import { getMediaFullDetails, getSmartTrailerVideo, NO_OVERVIEW_MESSAGE } from '../services/tmdb';
 import { useMovies } from '../context/MovieContext';
 import {
   getMediaKey,
@@ -164,10 +165,12 @@ const MovieDetailsModal = ({ movie, onClose }) => {
     toggleFavorite,
     toggleWatched,
     updateMediaProgress,
+    updateMovieMetadata,
   } = useMovies();
   const [modalMedia, setModalMedia] = useState(movie);
   const mediaType = getMediaType(modalMedia);
   const [details, setDetails] = useState(movie);
+  const [loadedDetailsKey, setLoadedDetailsKey] = useState('');
   const [loading, setLoading] = useState(false);
   const [detailsError, setDetailsError] = useState(null);
   const [watchAssistantPicker, setWatchAssistantPicker] = useState({ season: '', episode: '' });
@@ -323,12 +326,14 @@ const MovieDetailsModal = ({ movie, onClose }) => {
     const timer = window.setTimeout(() => {
       setLoading(true);
       setDetailsError(null);
+      setLoadedDetailsKey('');
       getMediaFullDetails(modalMedia.id, mediaType)
         .then(fullDetails => {
           if (cancelled) return;
 
           if (fullDetails) {
             setDetails({ ...modalMedia, ...fullDetails });
+            setLoadedDetailsKey(`${mediaType}:${modalMedia.id}`);
           } else {
             setDetailsError('Detaylar şu anda yüklenemedi. Kayıtlı bilgiler gösteriliyor.');
           }
@@ -348,6 +353,26 @@ const MovieDetailsModal = ({ movie, onClose }) => {
       window.clearTimeout(timer);
     };
   }, [modalMedia, mediaType]);
+
+  useEffect(() => {
+    if (!listedMovie || loadedDetailsKey !== mediaDetailKey) return;
+
+    const nextOverview = details?.overview?.trim();
+    if (!nextOverview || nextOverview === listedMovie.overview) return;
+
+    updateMovieMetadata(docId, {
+      overview: nextOverview,
+      overviewLanguage: details.overviewLanguage || listedMovie.overviewLanguage || '',
+    });
+  }, [
+    details?.overview,
+    details?.overviewLanguage,
+    docId,
+    listedMovie,
+    loadedDetailsKey,
+    mediaDetailKey,
+    updateMovieMetadata,
+  ]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -665,6 +690,7 @@ const MovieDetailsModal = ({ movie, onClose }) => {
   const openSimilarContent = (relatedMedia) => {
     setModalMedia(relatedMedia);
     setDetails(relatedMedia);
+    setLoadedDetailsKey('');
     setDetailsError(null);
     setWatchAssistantFeedback('');
     setTrackingDraft(null);
@@ -760,7 +786,7 @@ const MovieDetailsModal = ({ movie, onClose }) => {
             )}
 
             <p className="detail-overview">
-              {activeMovie.overview || `Bu ${mediaLabel.toLowerCase()} için açıklama bulunamadı.`}
+              {activeMovie.overview || NO_OVERVIEW_MESSAGE}
             </p>
 
             {detailsError && <p className="movie-modal-warning" role="alert">{detailsError}</p>}
@@ -1063,6 +1089,13 @@ const MovieDetailsModal = ({ movie, onClose }) => {
                 </div>
               )}
             </div>
+
+            <WhereToWatch
+              mediaId={activeMovie.id}
+              mediaType={mediaType}
+              mediaTitle={activeMovie.title}
+              watchLinks={activeMovie.watchLinks || {}}
+            />
 
             <div className="movie-modal-panel detail-section cast-panel">
               <div className="detail-panel-head">

@@ -200,6 +200,8 @@ export const normalizeMediaItem = (item = {}) => {
     mediaType,
     media_type: mediaType,
     title: item.title || item.name || 'İsimsiz',
+    overview: item.overview || item.description || item.summary || '',
+    overviewLanguage: item.overviewLanguage || item.overview_language || '',
     posterPath: item.posterPath || item.poster_path || null,
     backdropPath: item.backdropPath || item.backdrop_path || null,
     releaseDate: item.releaseDate || item.release_date || item.firstAirDate || item.first_air_date || '',

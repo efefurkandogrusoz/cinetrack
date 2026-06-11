@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import MovieDetailsModal from '../components/MovieDetailsModal';
 import Navbar from '../components/Navbar';
 import { useMovies } from '../context/MovieContext';
-import { ALL_GENRE_MAP, getMovieCatalog } from '../services/tmdb';
+import { ALL_GENRE_MAP, getMovieCatalog, NO_OVERVIEW_MESSAGE } from '../services/tmdb';
 import { getMediaKey, getMediaTypeLabel } from '../utils/media';
 import '../styles/pages/pages.css';
 
@@ -249,7 +249,7 @@ const Movies = () => {
                         </div>
                       )}
 
-                      <p>{movie.overview || `Bu ${getMediaTypeLabel(movie).toLowerCase()} için açıklama bulunamadı.`}</p>
+                      <p>{movie.overview || NO_OVERVIEW_MESSAGE}</p>
 
                       <button
                         type="button"

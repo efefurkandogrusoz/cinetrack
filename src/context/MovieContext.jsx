@@ -20,6 +20,7 @@ import {
 } from '../utils/accountStatus';
 import { notifyFromBridge } from '../utils/notifyBridge';
 import { NOTIFICATION_TYPES } from '../utils/notificationHelpers';
+import { getMediaDetails, NO_OVERVIEW_MESSAGE } from '../services/tmdb';
 
 export const MovieContext = createContext();
 
@@ -346,7 +347,7 @@ export const MovieProvider = ({ children }) => {
   }, [state.authError, state.authReady, state.movies, state.moviesReady, state.user]);
 
   const addMovie = useCallback(async (movieData) => {
-    const normalizedInput = normalizeMediaItem(movieData);
+    let normalizedInput = normalizeMediaItem(movieData);
 
     if (findMedia(state.movies, normalizedInput)) {
       return;
@@ -354,6 +355,20 @@ export const MovieProvider = ({ children }) => {
 
     dispatch({ type: 'SET_LOADING', payload: true });
     try {
+      const freshDetails = normalizedInput.id
+        ? await getMediaDetails(normalizedInput.id, normalizedInput.mediaType)
+        : null;
+
+      if (freshDetails) {
+        normalizedInput = normalizeMediaItem({
+          ...normalizedInput,
+          ...freshDetails,
+          ...movieData,
+          overview: freshDetails.overview || normalizedInput.overview,
+          overviewLanguage: freshDetails.overviewLanguage || normalizedInput.overviewLanguage,
+        });
+      }
+
       const now = new Date();
       const mediaType = normalizedInput.mediaType;
       const watchStatus = normalizedInput.watchStatus;
@@ -414,7 +429,8 @@ export const MovieProvider = ({ children }) => {
         personalRating: hasUserRating ? userRating : 0,
         ratingAt: hasUserRating ? movieData.ratingAt || movieData.ratedAt || now : null,
         ratedAt: hasUserRating ? movieData.ratedAt || movieData.ratingAt || now : null,
-        overview: normalizedInput.overview || '',
+        overview: normalizedInput.overview || NO_OVERVIEW_MESSAGE,
+        overviewLanguage: normalizedInput.overviewLanguage || '',
         currentSeason: tvTracking?.currentSeason || normalizedInput.currentSeason,
         currentEpisode: tvTracking?.currentEpisode || normalizedInput.currentEpisode,
         watchedEpisodes: tvTracking?.watchedEpisodes || normalizedInput.watchedEpisodes,
@@ -698,6 +714,29 @@ export const MovieProvider = ({ children }) => {
     }
   }, [state.movies, state.user]);
 
+  const updateMovieMetadata = useCallback(async (docId, metadata = {}) => {
+    const movie = state.movies.find(item => (item.docId || item.id) === docId);
+    if (!movie) return;
+
+    try {
+      const now = new Date();
+      const updates = {
+        ...metadata,
+        overview: metadata.overview || movie.overview || NO_OVERVIEW_MESSAGE,
+        updatedAt: now,
+        updated_at: now,
+      };
+
+      if (state.user) {
+        await firebaseService.updateMovieStatus(docId, updates);
+      }
+
+      dispatch({ type: 'UPDATE_MOVIE', payload: { docId, ...updates } });
+    } catch (error) {
+      console.warn('Movie metadata could not be refreshed:', error);
+    }
+  }, [state.movies, state.user]);
+
   const setWatchStatus = useCallback(async (docId, watchStatus) => {
     await updateMediaProgress(docId, { watchStatus });
   }, [updateMediaProgress]);
@@ -817,6 +856,7 @@ export const MovieProvider = ({ children }) => {
     setUserRating,
     setWatchStatus,
     updateMediaProgress,
+    updateMovieMetadata,
     advanceEpisode,
     setFilter,
     setSearchResults,
